@@ -360,7 +360,10 @@ code {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   min-height: 0;
-  overflow-y: auto;
+  /* Never scroll. A scrollbar appearing on the table mid-game is jarring,
+     and it used to be triggered just by the discard hint adding a line —
+     that message now lives in the status bar instead. */
+  overflow: hidden;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
@@ -379,17 +382,9 @@ code {
   pointer-events: none;
 }
 
-.board__discardHint {
-  flex-basis: 100%;
-  margin: 0.25rem 0 0;
-  text-align: center;
-  font-size: 0.72rem;
-  color: var(--gold);
-}
-
 .board__slot {
   padding: 0;
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   border-radius: 0.4rem;
   background: none;
   line-height: 0;
@@ -400,9 +395,31 @@ code {
   cursor: default;
 }
 
+/* Cards slide up onto the table from the direction they were played, rather
+   than appearing instantly — the jump made it hard to follow what had just
+   been placed. Both the hand and the deck sit below the field, so one
+   upward motion serves both. */
+.board__slot--enter {
+  animation: card-land 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes card-land {
+  from {
+    transform: translateY(90px) scale(0.86);
+    opacity: 0;
+  }
+  60% {
+    opacity: 1;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
 .board__slot--target {
   border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(232, 180, 35, 0.25);
+  box-shadow: 0 0 0 4px rgba(232, 180, 35, 0.32);
   transform: translateY(-3px);
 }
 
@@ -521,8 +538,8 @@ code {
    hand is readable at a glance. The exact count appears on the card that is
    forward — badges on every card get buried under the overlap. */
 .hand__card--playable img {
-  outline: 2px solid rgba(232, 180, 35, 0.6);
-  outline-offset: -1px;
+  outline: 4px solid rgba(232, 180, 35, 0.92);
+  outline-offset: -2px;
 }
 
 .hand__card--selected {
@@ -530,7 +547,7 @@ code {
 }
 
 .hand__card--selected img {
-  outline: 2px solid var(--gold);
+  outline: 5px solid var(--gold);
   outline-offset: 1px;
 }
 
@@ -1226,4 +1243,107 @@ code {
   color: var(--muted);
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+/* ------------------------------------------------------------ resume save */
+
+.resume {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.resume .btn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  line-height: 1.25;
+}
+
+.resume__detail {
+  font-size: 0.7rem;
+  font-weight: 500;
+  opacity: 0.75;
+}
+
+.resume__discard {
+  background: none;
+  border: 0;
+  padding: 0.2rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* --------------------------------------------------------------- spinner */
+
+.spinner {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.14);
+  border-top-color: var(--gold);
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Blocks the board until both peers are actually connected. Relay bootstrap
+   can take a good few seconds, and without this the host sees a playable
+   table and starts a turn before anyone is there to answer it. */
+.connecting {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  padding: 1.5rem;
+  text-align: center;
+  background: rgba(20, 20, 22, 0.93);
+  backdrop-filter: blur(3px);
+}
+
+.connecting h2 {
+  font-size: 1.1rem;
+}
+
+.connecting p {
+  margin: 0;
+  max-width: 22rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.connecting__code {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.connecting__code span {
+  flex: 0 0 2.1rem;
+  height: 2.7rem;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(232, 180, 35, 0.45);
+  border-radius: 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.connecting__elapsed {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  color: var(--muted);
 }

@@ -10,6 +10,7 @@
  * the normal "two things lit up, pick one" flow.
  */
 
+import { useEffect, useRef, useState } from 'react';
 import { getCard, type CardId } from '../../engine/cards';
 import { matchesFor, type GameState, type PlayerIndex } from '../../engine/game';
 import { CardBack, CardFace } from '../../art/CardFace';
@@ -55,6 +56,10 @@ export function Board({ state, seat, canAct, selected, onSelect, onPlay, onChoos
   const pending = round.pending;
   const drawn = round.trace.drawnCard;
 
+  // Cards that have just arrived on the field, so they can slide in from the
+  // direction they were played from rather than blinking into existence.
+  const arriving = useArrivals(round.field);
+
   return (
     <div className="board">
       {/* Opponent's hand, face down. */}
@@ -77,7 +82,11 @@ export function Board({ state, seat, canAct, selected, onSelect, onPlay, onChoos
             <button
               key={id}
               type="button"
-              className={`board__slot ${isTarget ? 'board__slot--target' : ''}`}
+              className={
+                'board__slot' +
+                (isTarget ? ' board__slot--target' : '') +
+                (arriving.has(id) ? ' board__slot--enter' : '')
+              }
               onClick={() => handleField(id)}
               disabled={!isTarget}
               aria-label={`${getCard(id).name}, ${getCard(id).suit}`}
@@ -87,7 +96,6 @@ export function Board({ state, seat, canAct, selected, onSelect, onPlay, onChoos
           );
         })}
         {round.field.length === 0 && <p className="board__fieldEmpty">The field is clear</p>}
-        {discardArmed && <p className="board__discardHint">No match — tap the table to discard</p>}
       </div>
 
       {/* Draw pile and the card currently in flight. */}
@@ -122,3 +130,32 @@ export function Board({ state, seat, canAct, selected, onSelect, onPlay, onChoos
     </div>
   );
 }
+
+/**
+ * Tracks which field cards are new since the previous render.
+ *
+ * The engine hands us a flat list of field cards with no history, so "did this
+ * card just land?" has to be derived by diffing against the last list. The
+ * arrival flag is cleared on a timer so the animation runs once and the card
+ * then sits still.
+ */
+function useArrivals(field: readonly CardId[]): ReadonlySet<CardId> {
+  const previous = useRef<readonly CardId[]>(field);
+  const [arriving, setArriving] = useState<ReadonlySet<CardId>>(new Set());
+
+  useEffect(() => {
+    const before = new Set(previous.current);
+    const fresh = field.filter((id) => !before.has(id));
+    previous.current = field;
+    if (fresh.length === 0) return;
+
+    setArriving(new Set(fresh));
+    const timer = setTimeout(() => setArriving(new Set()), ENTER_MS);
+    return () => clearTimeout(timer);
+  }, [field]);
+
+  return arriving;
+}
+
+/** Must match the `card-land` animation duration in the stylesheet. */
+const ENTER_MS = 420;

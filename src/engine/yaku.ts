@@ -205,3 +205,52 @@ export function evaluateTeyaku(hand: readonly CardId[], rules: RuleConfig): Scor
 
   return result;
 }
+
+/**
+ * Which yaku a single card can contribute to.
+ *
+ * Presentation leans on this to explain a card ("one of the three blue
+ * ribbons — Aotan"), which is the thing a new player most needs to know and
+ * cannot get from the artwork alone. It is domain knowledge rather than UI
+ * detail, so it lives here beside the scorer it must agree with.
+ *
+ * Brights report every brights yaku the card could appear in; those yaku are
+ * mutually exclusive when scored, but any bright is a candidate for all of
+ * them, except the Rain Man which is excluded from Shiko and Sanko.
+ */
+export function yakuForCard(id: CardId, rules: RuleConfig): YakuId[] {
+  const card = getCards([id])[0];
+  if (!card) return [];
+  const out: YakuId[] = [];
+
+  if (card.kind === 'hikari') {
+    out.push('goko');
+    if (id === CARD_IDS.RAIN_MAN) {
+      // The Rain Man makes four brights Ame-Shiko, and never counts for
+      // Shiko or Sanko.
+      out.push('ame-shiko');
+    } else {
+      out.push('shiko', 'sanko');
+    }
+  }
+
+  if (id === CARD_IDS.BOAR || id === CARD_IDS.DEER || id === CARD_IDS.BUTTERFLIES) {
+    out.push('ino-shika-cho');
+  }
+  if (id === CARD_IDS.CURTAIN || id === CARD_IDS.SAKE_CUP) out.push('hanami-zake');
+  if (id === CARD_IDS.MOON || id === CARD_IDS.SAKE_CUP) out.push('tsukimi-zake');
+
+  if (card.kind === 'tane') out.push('tane');
+
+  if (card.kind === 'tanzaku') {
+    if (card.ribbon === 'red-poetry') out.push('akatan');
+    if (card.ribbon === 'blue') out.push('aotan');
+    out.push('tanzaku');
+  }
+
+  if (card.kind === 'kasu') out.push('kasu');
+  // Under the alternate rule the Sake Cup also counts toward the chaff total.
+  if (rules.sakeCupMode === 'tane-and-kasu' && id === CARD_IDS.SAKE_CUP) out.push('kasu');
+
+  return out;
+}

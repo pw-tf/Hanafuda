@@ -30,9 +30,23 @@ Pushing to `main` builds and publishes to GitHub Pages via
 `.github/workflows/deploy.yml`. It runs the tests first, so a red suite blocks
 the deploy.
 
-**One-time setup:** in the repository's **Settings → Pages**, set **Source** to
-**GitHub Actions**. That switch cannot be flipped from a workflow, so the first
-deploy will not publish until it is done.
+**One-time setup**, neither of which a workflow can do for itself:
+
+1. **Settings → Pages → Source: GitHub Actions.** Ignore the "Jekyll" and
+   "Static HTML" starter cards that appear afterwards — the workflow already
+   exists, and clicking one would create a second, conflicting workflow.
+2. **Settings → Environments → `github-pages` → Deployment branches and tags:
+   allow `main`.** Enabling Pages creates a `github-pages` environment whose
+   branch policy permits only the repository's default branch at that moment.
+   If the default branch was something else when Pages was switched on, the
+   build succeeds and the deploy is rejected with:
+
+   > Branch "main" is not allowed to deploy to github-pages due to environment
+   > protection rules.
+
+   Setting **Settings → General → Default branch** to `main` is worth doing
+   too, but the stored branch policy does not always follow, so check the
+   environment rule directly.
 
 Routing is hash-based (`#/gallery`, `#/settings`), so no SPA rewrite rules or
 `404.html` fallback are needed, and the app works from any subdirectory. The

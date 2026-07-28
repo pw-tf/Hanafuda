@@ -120,6 +120,7 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
         rules={state.rules}
         koiKoiCalls={round.players[opponent].koiKoiCalls}
         active={theirTurn}
+        stack={{ count: round.players[opponent].hand.length, label: 'Cards in hand' }}
         onOpen={() => setOpenPile(opponent)}
       />
 
@@ -145,6 +146,7 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
         rules={state.rules}
         koiKoiCalls={round.players[seat].koiKoiCalls}
         active={!theirTurn && round.phase !== 'round-end'}
+        stack={{ count: round.deck.length, label: 'Cards left in the deck' }}
         onOpen={() => setOpenPile(seat)}
       />
 

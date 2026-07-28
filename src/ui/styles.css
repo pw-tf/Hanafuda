@@ -218,6 +218,20 @@ code {
   border-color: rgba(232, 180, 35, 0.5);
 }
 
+.summary__stack {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  line-height: 0;
+  flex: 0 0 auto;
+}
+
+.summary__stack b {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
 .summary__name {
   font-size: 0.78rem;
   font-weight: 600;
@@ -334,25 +348,18 @@ code {
 
 .board {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 0.4rem;
   min-height: 0;
-}
-
-.board__oppHand {
-  display: flex;
-  justify-content: center;
-  padding-left: 1.5rem;
-}
-
-.board__oppCard {
-  line-height: 0;
 }
 
 .board__field {
   display: flex;
   flex-wrap: wrap;
-  align-content: flex-start;
+  /* `safe` matters: plain `center` clips the first row off the top once the
+     content overflows, which is exactly the crowded-field case this needs to
+     survive. It falls back to start-alignment when there is no spare room. */
+  align-content: safe center;
   justify-content: center;
   gap: 0.3rem;
   padding: 0.45rem;
@@ -360,10 +367,13 @@ code {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   min-height: 0;
-  /* Never scroll. A scrollbar appearing on the table mid-game is jarring,
-     and it used to be triggered just by the discard hint adding a line —
-     that message now lives in the status bar instead. */
-  overflow: hidden;
+  position: relative;
+  /* Scrollable, so a crowded field (20+ cards is possible) is never clipped.
+     The original scrollbar bug was the discard hint growing the content by a
+     line; that message lives in the status bar now, so this only engages when
+     there are genuinely more cards than fit. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
@@ -400,7 +410,40 @@ code {
    been placed. Both the hand and the deck sit below the field, so one
    upward motion serves both. */
 .board__slot--enter {
-  animation: card-land 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: card-land 0.44s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Captured cards travel towards whoever took them before leaving the layout,
+   so it is clear where they went rather than them simply disappearing. */
+.board__slot--leave {
+  pointer-events: none;
+  animation: card-leave-down 0.44s cubic-bezier(0.4, 0, 0.7, 0.2) both;
+}
+
+.board__slot--leave-up {
+  animation-name: card-leave-up;
+}
+
+@keyframes card-leave-down {
+  from {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(150px) scale(0.7);
+    opacity: 0;
+  }
+}
+
+@keyframes card-leave-up {
+  from {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-150px) scale(0.7);
+    opacity: 0;
+  }
 }
 
 @keyframes card-land {
@@ -434,52 +477,34 @@ code {
   color: var(--muted);
 }
 
-.board__deck {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  justify-content: center;
-}
-
-.board__deckStack {
-  position: relative;
-  line-height: 0;
-}
-
-.board__deckCount {
-  position: absolute;
-  inset: auto 0 0.2rem 0;
-  text-align: center;
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: var(--cream);
-  text-shadow: 0 1px 3px #000;
-}
-
+/* The card in flight sits over the field rather than in a row of its own. */
 .board__flight {
-  min-width: 3rem;
-  min-height: 4rem;
-  display: flex;
-  align-items: center;
-}
-
-.board__flightCard {
+  position: absolute;
+  top: 0.4rem;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.15rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--radius);
+  background: rgba(10, 10, 11, 0.82);
+  border: 1px solid var(--line);
   line-height: 0;
+  pointer-events: none;
   animation: flip-in 0.35s ease;
 }
 
-.board__flightCard span {
+.board__flight span {
   font-size: 0.64rem;
   color: var(--muted);
-  line-height: 1;
+  line-height: 1.2;
 }
 
-.board__flightCard--pending {
-  filter: drop-shadow(0 0 6px var(--gold));
+.board__flight--pending {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(232, 180, 35, 0.25);
 }
 
 @keyframes flip-in {

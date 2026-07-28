@@ -7,7 +7,7 @@
  */
 
 import { getCard, type CardId, type CardKind } from '../../engine/cards';
-import { CardFace } from '../../art/CardFace';
+import { CardBack, CardFace } from '../../art/CardFace';
 import type { RuleConfig } from '../../engine/rules';
 import { evaluateYaku } from '../../engine/yaku';
 
@@ -43,6 +43,7 @@ export function PileSummary({
   rules,
   koiKoiCalls,
   active,
+  stack,
   onOpen,
 }: {
   name: string;
@@ -51,6 +52,12 @@ export function PileSummary({
   koiKoiCalls: number;
   /** True when it is this player's turn. */
   active?: boolean;
+  /**
+   * A face-down pile to show on the left — the opponent's hand, or the draw
+   * pile. These used to sit above and below the field as full rows of card
+   * backs, which cost the table a lot of height for two numbers.
+   */
+  stack?: { count: number; label: string };
   onOpen(): void;
 }) {
   const groups = countByKind(cards);
@@ -63,6 +70,13 @@ export function PileSummary({
       onClick={onOpen}
       aria-label={`${name}: ${cards.length} cards captured, ${base} points. Open details.`}
     >
+      {stack && (
+        <span className="summary__stack" title={`${stack.label}: ${stack.count}`}>
+          <CardBack width={20} />
+          <b aria-label={`${stack.label}: ${stack.count}`}>{stack.count}</b>
+        </span>
+      )}
+
       <span className="summary__name">{name}</span>
 
       {koiKoiCalls > 0 && <span className="summary__koi">Koi-Koi ×{koiKoiCalls}</span>}

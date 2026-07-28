@@ -1509,17 +1509,56 @@ code {
   flex-direction: column;
 }
 
+.score__note {
+  margin: 0 0 0.4rem;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
 .score__group li {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.35rem 0;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.5rem 0;
   border-top: 1px solid var(--line);
 }
 
 .score__group li:first-child {
   border-top: 0;
+}
+
+/* Name and points share a row; the pictures sit under them. */
+.score__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.score__desc {
+  margin: 0;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.score__cards {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.1rem;
+}
+
+/* Trailing ellipsis on the "any N of this type" rows, so the handful of
+   cards shown reads as examples rather than as the exact set. */
+.score__more {
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 0.15rem;
+  align-self: center;
 }
 
 .score__name {

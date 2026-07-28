@@ -22,7 +22,6 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
   const [sheet, setSheet] = useState<'none' | 'yaku'>('none');
 
   const state = session.state;
-  const seat: PlayerIndex = session.mySeat ?? 0;
 
   // Clear the selection whenever the position changes under us.
   useEffect(() => {
@@ -62,6 +61,18 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
   }
 
   const round = state.roundState;
+
+  /**
+   * Which seat the board is drawn from. In pass-and-play both players share
+   * one device, so the view has to follow whoever is to move — otherwise the
+   * second player is shown the first player's hand and can never act.
+   * Everywhere else the seat is fixed to this device's player.
+   */
+  const seat: PlayerIndex =
+    config.mode === 'local' && round.phase !== 'round-end'
+      ? round.current
+      : (session.mySeat ?? 0);
+
   const opponent: PlayerIndex = seat === 0 ? 1 : 0;
   const result = round.result;
   const myYaku = currentYaku(state, seat);

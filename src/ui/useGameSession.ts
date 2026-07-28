@@ -88,6 +88,10 @@ export function useGameSession(config: SessionConfig): Session {
   const seqRef = useRef(0);
   const lastSeenSeq = useRef(-1);
   const aiRng = useRef(createRng(initialSeed ^ 0x5bf03635));
+  // Read inside the room effect without making it a dependency, which would
+  // tear down and rejoin the room every time the rules object changed.
+  const rulesRef = useRef(rules);
+  rulesRef.current = rules;
 
   stateRef.current = state;
 
@@ -137,8 +141,14 @@ export function useGameSession(config: SessionConfig): Session {
           setConnectionDetail(detail ?? null);
         },
         onHello: (message) => {
-          // Guests adopt the host's rules so both sides score identically.
-          if (mode === 'guest') decodeRules(message.json);
+          // The guest scores from the rules carried inside each state
+          // snapshot, so hello is only a compatibility check: warn loudly if
+          // the host is playing a different table than this client shows.
+          if (mode !== 'guest') return;
+          const hostRules = decodeRules(message.json);
+          if (hostRules.id !== rulesRef.current.id) {
+            setConnectionDetail(`Host is using the "${hostRules.label}" scoring table.`);
+          }
         },
         onState: (message) => {
           if (mode !== 'guest') return;

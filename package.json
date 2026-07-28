@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@trystero-p2p/mqtt": "^0.25.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "trystero": "^0.25.3"
@@ -22,6 +23,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^6.0.4",
+    "playwright": "^1.62.0",
     "typescript": "^5.7.2",
     "vite": "^8.1.5",
     "vitest": "^4.1.10"

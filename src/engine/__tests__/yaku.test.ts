@@ -72,7 +72,7 @@ describe('brights yaku', () => {
 });
 
 describe('ino-shika-cho', () => {
-  const ISC = [CARD_IDS.BOAR, CARD_IDS.DEER, CARD_IDS.BUTTERFLIES];
+  const ISC: CardId[] = [CARD_IDS.BOAR, CARD_IDS.DEER, CARD_IDS.BUTTERFLIES];
 
   it('scores 5 for boar + deer + butterflies', () => {
     expect(pointsFor(ISC, 'ino-shika-cho')).toBe(5);
@@ -213,14 +213,8 @@ describe('combined hands', () => {
 
   it('scores a realistic mixed hand correctly', () => {
     // Goko(10) + Ino-Shika-Cho(5) + Hanami(5) + Tsukimi(5) + Tane(5 animals = 1)
-    const held = [
-      ...BRIGHTS,
-      CARD_IDS.BOAR,
-      CARD_IDS.DEER,
-      CARD_IDS.BUTTERFLIES,
-      CARD_IDS.SAKE_CUP,
-      TANE.find((t) => ![CARD_IDS.BOAR, CARD_IDS.DEER, CARD_IDS.BUTTERFLIES, CARD_IDS.SAKE_CUP].includes(t))!,
-    ];
+    const named: CardId[] = [CARD_IDS.BOAR, CARD_IDS.DEER, CARD_IDS.BUTTERFLIES, CARD_IDS.SAKE_CUP];
+    const held = [...BRIGHTS, ...named, TANE.find((t) => !named.includes(t))!];
     expect(yakuIds(held)).toEqual(
       ['goko', 'hanami-zake', 'ino-shika-cho', 'tane', 'tsukimi-zake'].sort(),
     );

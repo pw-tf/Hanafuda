@@ -102,7 +102,7 @@ describe('playing a card from hand', () => {
     });
 
     expect(s.roundState.phase).toBe('draw');
-    expect(s.roundState.players[0].captured.sort()).toEqual([jan0, jan1].sort());
+    expect([...s.roundState.players[0].captured].sort()).toEqual([jan0, jan1].sort());
     expect(s.roundState.field).not.toContain(jan1);
   });
 
@@ -119,7 +119,7 @@ describe('playing a card from hand', () => {
 
     const chosen = applyMove(s, { type: 'chooseTarget', target: jan2 });
     expect(chosen.roundState.phase).toBe('draw');
-    expect(chosen.roundState.players[0].captured.sort()).toEqual([jan0, jan2].sort());
+    expect([...chosen.roundState.players[0].captured].sort()).toEqual([jan0, jan2].sort());
     expect(chosen.roundState.field).toEqual([jan1]);
   });
 
@@ -130,7 +130,7 @@ describe('playing a card from hand', () => {
       card: jan0,
     });
 
-    expect(s.roundState.players[0].captured.sort()).toEqual([jan0, jan1, jan2, jan3].sort());
+    expect([...s.roundState.players[0].captured].sort()).toEqual([jan0, jan1, jan2, jan3].sort());
     expect(s.roundState.field).toEqual(monthIds(5));
     expect(s.roundState.phase).toBe('draw');
   });
@@ -160,7 +160,7 @@ describe('the deck flip', () => {
     });
     const s = applyMove(afterPlay, { type: 'draw' });
 
-    expect(s.roundState.field.sort()).toEqual([handCard, deckCard].sort());
+    expect([...s.roundState.field].sort()).toEqual([handCard, deckCard].sort());
     expect(s.roundState.deck).toEqual([]);
     expect(s.roundState.phase).toBe('play');
     expect(s.roundState.current).toBe(1);
@@ -175,7 +175,7 @@ describe('the deck flip', () => {
     );
     const s = applyMove(afterPlay, { type: 'draw' });
 
-    expect(s.roundState.players[0].captured.sort()).toEqual([jan0, jan1].sort());
+    expect([...s.roundState.players[0].captured].sort()).toEqual([jan0, jan1].sort());
   });
 
   it('asks the player to choose when the flipped card matches two', () => {
@@ -191,7 +191,7 @@ describe('the deck flip', () => {
     expect(s.roundState.pending).toMatchObject({ card: jan0, source: 'deck' });
 
     const chosen = applyMove(s, { type: 'chooseTarget', target: jan1 });
-    expect(chosen.roundState.players[0].captured.sort()).toEqual([jan0, jan1].sort());
+    expect([...chosen.roundState.players[0].captured].sort()).toEqual([jan0, jan1].sort());
     expect(chosen.roundState.phase).toBe('play');
     expect(chosen.roundState.current).toBe(1);
   });
@@ -210,7 +210,7 @@ describe('the deck flip', () => {
     );
     const s = applyMove(afterPlay, { type: 'draw' });
 
-    expect(s.roundState.players[0].captured.sort()).toEqual([jan0, jan1, jan2, jan3].sort());
+    expect([...s.roundState.players[0].captured].sort()).toEqual([jan0, jan1, jan2, jan3].sort());
   });
 
   it('can capture the card just placed on the field by the hand play', () => {
@@ -222,7 +222,7 @@ describe('the deck flip', () => {
     expect(afterPlay.roundState.field).toEqual([jan0]);
 
     const s = applyMove(afterPlay, { type: 'draw' });
-    expect(s.roundState.players[0].captured.sort()).toEqual([jan0, jan1].sort());
+    expect([...s.roundState.players[0].captured].sort()).toEqual([jan0, jan1].sort());
     expect(s.roundState.field).toEqual([]);
   });
 });

@@ -145,7 +145,7 @@ export function Board({
 
 /** Must match the animation durations in the stylesheet. */
 const ENTER_MS = 440;
-const LEAVE_MS = 440;
+const LEAVE_MS = 462;
 
 interface FieldAnimation {
   /** Field cards plus any still animating out, in stable display order. */

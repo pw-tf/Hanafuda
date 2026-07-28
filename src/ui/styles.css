@@ -6,16 +6,19 @@
  */
 
 :root {
-  --felt: #0d3b2e;
-  --felt-2: #0a2f25;
-  --ink: #12100c;
-  --cream: #f4ead6;
+  /* Charcoal, deliberately neutral: the card artwork carries the colour, so
+     the table stays out of its way and keeps contrast high. */
+  --felt: #1c1c1e;
+  --felt-2: #141416;
+  --surface: #242427;
+  --ink: #0e0e0f;
+  --cream: #f4f3ef;
   --gold: #e8b423;
   --red: #d93b30;
-  --line: rgba(244, 234, 214, 0.16);
-  --panel: rgba(0, 0, 0, 0.26);
-  --text: #f3ecdd;
-  --muted: rgba(243, 236, 221, 0.62);
+  --line: rgba(255, 255, 255, 0.12);
+  --panel: rgba(255, 255, 255, 0.05);
+  --text: #ececed;
+  --muted: rgba(236, 236, 237, 0.58);
 
   --pad: 0.75rem;
   --radius: 0.75rem;
@@ -86,7 +89,7 @@ code {
   max-width: 34rem;
   margin: 0 auto;
   padding: calc(var(--safe-t) + var(--pad)) var(--pad) calc(var(--safe-b) + var(--pad));
-  background: radial-gradient(120% 80% at 50% 0%, #14503c 0%, var(--felt) 55%, var(--felt-2) 100%);
+  background: radial-gradient(120% 80% at 50% 0%, #2a2a2d 0%, var(--felt) 55%, var(--felt-2) 100%);
 }
 
 .screen--center {
@@ -115,18 +118,17 @@ code {
   min-height: 0;
 }
 
-.screen--game > .tray,
 .screen--game > .topbar,
 .screen--game > .netbar,
 .screen--game > .statusbar {
   flex: 0 0 auto;
 }
 
-/* Capture trays grow only as far as their contents need, and scroll after
-   that, so a large pile can never squeeze the hand off screen. */
-.screen--game > .tray {
-  max-height: 22dvh;
-  overflow-y: auto;
+/* The capture summaries are a fixed height by design. They used to be full
+   piles that grew with every capture, which squeezed the field smaller turn
+   after turn — the field lost half its height over four turns. */
+.screen--game > .summary {
+  flex: 0 0 auto;
 }
 
 /* ---------------------------------------------------------------- topbar */
@@ -195,55 +197,112 @@ code {
   background: rgba(217, 59, 48, 0.14);
 }
 
-/* ------------------------------------------------------------- capture trays */
+/* ------------------------------------------------------ capture summaries */
 
-.tray {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 0.4rem 0.5rem;
-  min-height: 3.5rem;
-}
-
-.tray__head {
+/* One row per player, fixed height whatever the pile contains. */
+.summary {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.75rem;
-  color: var(--muted);
-  margin-bottom: 0.25rem;
-}
-
-.tray__koi {
-  color: var(--gold);
-  font-weight: 700;
-}
-
-.tray__more {
-  margin-left: auto;
-  background: none;
+  width: 100%;
+  height: 2.6rem;
+  padding: 0 0.6rem;
+  background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 0.1rem 0.6rem;
-  font-size: 0.72rem;
+  border-radius: var(--radius);
+  text-align: left;
+  overflow: hidden;
 }
 
+.summary--active {
+  border-color: rgba(232, 180, 35, 0.5);
+}
+
+.summary__name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.summary__koi {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--gold);
+  white-space: nowrap;
+}
+
+.summary__counts {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: auto;
+  overflow: hidden;
+}
+
+.summary__counts em {
+  font-style: normal;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.summary__chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.15rem;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--line);
+}
+
+.summary__chip i {
+  font-style: normal;
+  font-size: 0.62rem;
+  opacity: 0.75;
+}
+
+.summary__chip--hikari { color: #ffd980; border-color: rgba(255, 217, 128, 0.4); }
+.summary__chip--tane { color: #9fd3a0; border-color: rgba(159, 211, 160, 0.35); }
+.summary__chip--tanzaku { color: #f0a6a0; border-color: rgba(240, 166, 160, 0.35); }
+.summary__chip--kasu { color: var(--muted); }
+
+.summary__pts {
+  min-width: 1.4rem;
+  text-align: right;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.summary__pts--on {
+  color: var(--gold);
+}
+
+.summary__more {
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+/* The full pile, inside the detail sheet. */
 .pile {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 0.9rem;
+  flex-direction: column;
+  gap: 0.55rem;
 }
 
 .pile__group {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.5rem;
 }
 
 .pile__label {
-  font-size: 0.68rem;
+  flex: 0 0 4.6rem;
+  font-size: 0.7rem;
   color: var(--muted);
-  white-space: nowrap;
 }
 
 .pile__label b {
@@ -252,6 +311,8 @@ code {
 
 .pile__cards {
   display: flex;
+  flex-wrap: wrap;
+  row-gap: 0.3rem;
 }
 
 .pile__card {
@@ -265,37 +326,15 @@ code {
 
 .pile__empty {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--muted);
-}
-
-.strip {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.3rem;
-  margin-bottom: 0.35rem;
-}
-
-.strip__chip {
-  font-size: 0.68rem;
-  padding: 0.1rem 0.45rem;
-  border-radius: 999px;
-  background: rgba(232, 180, 35, 0.16);
-  border: 1px solid rgba(232, 180, 35, 0.4);
-}
-
-.strip__total {
-  margin-left: auto;
-  font-weight: 700;
-  color: var(--gold);
 }
 
 /* ---------------------------------------------------------------- board */
 
 .board {
   display: grid;
-  grid-template-rows: auto 1fr auto auto;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
   gap: 0.4rem;
   min-height: 0;
 }
@@ -303,7 +342,7 @@ code {
 .board__oppHand {
   display: flex;
   justify-content: center;
-  padding-left: 1.6rem;
+  padding-left: 1.5rem;
 }
 
 .board__oppCard {
@@ -315,13 +354,37 @@ code {
   flex-wrap: wrap;
   align-content: flex-start;
   justify-content: center;
-  gap: 0.25rem;
-  padding: 0.4rem;
-  background: rgba(0, 0, 0, 0.2);
+  gap: 0.3rem;
+  padding: 0.45rem;
+  background: rgba(0, 0, 0, 0.28);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   min-height: 0;
   overflow-y: auto;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+/* A card is forward with nothing to take, so the table itself is the target. */
+.board__field--discard {
+  border-color: rgba(232, 180, 35, 0.55);
+  background: rgba(232, 180, 35, 0.07);
+  cursor: pointer;
+}
+
+/* The field cards are disabled buttons in this state, and a disabled control
+   swallows the click rather than letting it bubble — so a tap aimed at "the
+   table" would silently do nothing whenever it happened to land on a card.
+   Letting pointer events through makes the whole field one tap target. */
+.board__field--discard .board__slot {
+  pointer-events: none;
+}
+
+.board__discardHint {
+  flex-basis: 100%;
+  margin: 0.25rem 0 0;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--gold);
 }
 
 .board__slot {
@@ -341,6 +404,11 @@ code {
   border-color: var(--gold);
   box-shadow: 0 0 0 3px rgba(232, 180, 35, 0.25);
   transform: translateY(-3px);
+}
+
+.board__slot img {
+  border-radius: 0.3rem;
+  display: block;
 }
 
 .board__fieldEmpty {
@@ -365,15 +433,15 @@ code {
   position: absolute;
   inset: auto 0 0.2rem 0;
   text-align: center;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
   color: var(--cream);
   text-shadow: 0 1px 3px #000;
 }
 
 .board__flight {
-  min-width: 3.2rem;
-  min-height: 4.4rem;
+  min-width: 3rem;
+  min-height: 4rem;
   display: flex;
   align-items: center;
 }
@@ -388,7 +456,7 @@ code {
 }
 
 .board__flightCard span {
-  font-size: 0.65rem;
+  font-size: 0.64rem;
   color: var(--muted);
   line-height: 1;
 }
@@ -408,62 +476,91 @@ code {
   }
 }
 
-/* The hand scrolls horizontally with snap points; cards stay big enough to
-   tap comfortably rather than being squeezed to fit. */
-.board__hand {
-  display: flex;
-  gap: 0.3rem;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  padding: 0.35rem 0.1rem 0.5rem;
-  scrollbar-width: none;
-}
+/* ------------------------------------------------------------------ hand */
 
-.board__hand::-webkit-scrollbar {
-  display: none;
-}
-
-.board__handCard {
+/* The hand is fanned into an arc. Cards are absolutely positioned about the
+   centre line and each given its own transform, so the fan reflows on resize
+   without layout thrash. Pointer handling lives on the container rather than
+   the cards, so a slide starting on one card and ending on another is still
+   a single gesture. */
+.hand {
   position: relative;
-  flex: 0 0 auto;
+  height: 11rem;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.hand--idle {
+  opacity: 0.5;
+}
+
+.hand__card {
+  position: absolute;
+  left: 50%;
+  bottom: 0.25rem;
   padding: 0;
-  border: 2px solid transparent;
-  border-radius: 0.4rem;
+  border: 0;
   background: none;
   line-height: 0;
-  scroll-snap-align: center;
-  transition: transform 0.12s ease;
+  /* Rotation is applied about the card centre; the fan's pivot swing is
+     computed in fanLayout() and baked into each card's translation. */
+  transform-origin: 50% 50%;
+  transition:
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.18s ease;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.55));
+  pointer-events: none;
 }
 
-.board__handCard--sel {
-  border-color: var(--gold);
-  transform: translateY(-8px);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+.hand__card--focus {
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.65));
 }
 
-.board__handCard:disabled {
-  opacity: 0.55;
-  cursor: default;
+/* Cards that can take something on the field get a quiet rim, so the whole
+   hand is readable at a glance. The exact count appears on the card that is
+   forward — badges on every card get buried under the overlap. */
+.hand__card--playable img {
+  outline: 2px solid rgba(232, 180, 35, 0.6);
+  outline-offset: -1px;
 }
 
-.board__matchDot {
+.hand__card--selected {
+  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.7));
+}
+
+.hand__card--selected img {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.hand__card img {
+  display: block;
+  border-radius: 0.35rem;
+}
+
+.hand__match {
   position: absolute;
   top: -0.3rem;
   right: -0.3rem;
-  min-width: 1.1rem;
-  height: 1.1rem;
+  min-width: 1.15rem;
+  height: 1.15rem;
   border-radius: 999px;
   background: var(--gold);
   color: #2a1e00;
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 800;
-  line-height: 1.1rem;
+  line-height: 1.15rem;
   text-align: center;
 }
 
-.board__handEmpty {
-  margin: auto;
-  font-size: 0.78rem;
+.hand__empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  font-size: 0.8rem;
   color: var(--muted);
 }
 
@@ -500,7 +597,7 @@ code {
   max-width: 30rem;
   max-height: 82dvh;
   overflow-y: auto;
-  background: #123f31;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 1rem;
   padding: 1rem;

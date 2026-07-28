@@ -1,10 +1,15 @@
 /**
- * A player's captured cards, grouped by category with counts — the numbers a
- * player actually needs to track yaku progress.
+ * Captured cards.
+ *
+ * `PileSummary` is the on-table representation: a fixed-height button, so the
+ * capture piles can never grow and squeeze the playing field. The full pile
+ * lives behind it in a sheet, via `CapturePile`.
  */
 
 import { getCard, type CardId, type CardKind } from '../../engine/cards';
 import { CardFace } from '../../art/CardFace';
+import type { RuleConfig } from '../../engine/rules';
+import { evaluateYaku } from '../../engine/yaku';
 
 const ORDER: CardKind[] = ['hikari', 'tane', 'tanzaku', 'kasu'];
 
@@ -15,14 +20,81 @@ const LABEL: Record<CardKind, string> = {
   kasu: 'Chaff',
 };
 
+const SHORT: Record<CardKind, string> = {
+  hikari: 'B',
+  tane: 'A',
+  tanzaku: 'R',
+  kasu: 'C',
+};
+
+function countByKind(cards: readonly CardId[]): Array<{ kind: CardKind; n: number }> {
+  return ORDER.map((kind) => ({ kind, n: cards.filter((id) => getCard(id).kind === kind).length })).filter(
+    (g) => g.n > 0,
+  );
+}
+
+/**
+ * One fixed-height row per player. Height must not depend on how many cards
+ * have been captured — that was what made the field shrink turn by turn.
+ */
+export function PileSummary({
+  name,
+  cards,
+  rules,
+  koiKoiCalls,
+  active,
+  onOpen,
+}: {
+  name: string;
+  cards: readonly CardId[];
+  rules: RuleConfig;
+  koiKoiCalls: number;
+  /** True when it is this player's turn. */
+  active?: boolean;
+  onOpen(): void;
+}) {
+  const groups = countByKind(cards);
+  const { base } = evaluateYaku(cards, rules);
+
+  return (
+    <button
+      type="button"
+      className={`summary${active ? ' summary--active' : ''}`}
+      onClick={onOpen}
+      aria-label={`${name}: ${cards.length} cards captured, ${base} points. Open details.`}
+    >
+      <span className="summary__name">{name}</span>
+
+      {koiKoiCalls > 0 && <span className="summary__koi">Koi-Koi ×{koiKoiCalls}</span>}
+
+      <span className="summary__counts">
+        {groups.length === 0 ? (
+          <em>no captures</em>
+        ) : (
+          groups.map((g) => (
+            <span key={g.kind} className={`summary__chip summary__chip--${g.kind}`}>
+              <i>{SHORT[g.kind]}</i>
+              {g.n}
+            </span>
+          ))
+        )}
+      </span>
+
+      <span className={`summary__pts${base > 0 ? ' summary__pts--on' : ''}`}>{base}</span>
+      <span className="summary__more" aria-hidden="true">
+        ›
+      </span>
+    </button>
+  );
+}
+
+/** The full pile, grouped by category. Shown inside a sheet. */
 export function CapturePile({
   cards,
-  compact = false,
   highlight,
 }: {
   cards: readonly CardId[];
-  compact?: boolean;
-  /** Card ids to emphasise, e.g. the cards making up a scoring yaku. */
+  /** Card ids to emphasise, e.g. those making up a scoring yaku. */
   highlight?: ReadonlySet<CardId>;
 }) {
   const groups = ORDER.map((kind) => ({
@@ -35,7 +107,7 @@ export function CapturePile({
   }
 
   return (
-    <div className={`pile ${compact ? 'pile--compact' : ''}`}>
+    <div className="pile">
       {groups.map((group) => (
         <div key={group.kind} className="pile__group">
           <span className="pile__label">
@@ -46,9 +118,9 @@ export function CapturePile({
               <span
                 key={id}
                 className={`pile__card ${highlight?.has(id) ? 'pile__card--lit' : ''}`}
-                style={{ marginLeft: i === 0 ? 0 : compact ? '-1.5rem' : '-1.1rem' }}
+                style={{ marginLeft: i === 0 ? 0 : '-1.1rem' }}
               >
-                <CardFace id={id} width={compact ? 30 : 40} />
+                <CardFace id={id} width={44} />
               </span>
             ))}
           </div>

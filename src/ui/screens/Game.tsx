@@ -4,9 +4,9 @@ import { MONTH_NAMES } from '../../engine/cards';
 import { currentYaku, type PlayerIndex } from '../../engine/game';
 import type { RuleConfig } from '../../engine/rules';
 import { Board } from '../components/Board';
-import { CapturePile } from '../components/CapturePile';
+import { CapturePile, PileSummary } from '../components/CapturePile';
 import { KoiKoiPrompt, RoundEnd } from '../components/RoundEnd';
-import { YakuPanel, YakuStrip } from '../components/YakuPanel';
+import { YakuPanel } from '../components/YakuPanel';
 import { useGameSession, type SessionConfig } from '../useGameSession';
 import { STRATEGY_LABEL } from '../../net/protocol';
 
@@ -19,7 +19,8 @@ export interface GameScreenProps extends SessionConfig {
 export function Game({ names, onExit, ...config }: GameScreenProps) {
   const session = useGameSession(config);
   const [selected, setSelected] = useState<CardId | null>(null);
-  const [sheet, setSheet] = useState<'none' | 'yaku'>('none');
+  /** Which player's capture detail is open, if any. */
+  const [openPile, setOpenPile] = useState<PlayerIndex | null>(null);
 
   const state = session.state;
 
@@ -66,7 +67,6 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
    * Which seat the board is drawn from. In pass-and-play both players share
    * one device, so the view has to follow whoever is to move — otherwise the
    * second player is shown the first player's hand and can never act.
-   * Everywhere else the seat is fixed to this device's player.
    */
   const seat: PlayerIndex =
     config.mode === 'local' && round.phase !== 'round-end'
@@ -112,15 +112,14 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
         </div>
       )}
 
-      <section className="tray tray--them">
-        <div className="tray__head">
-          <span>{names[opponent]}</span>
-          {round.players[opponent].koiKoiCalls > 0 && (
-            <span className="tray__koi">Koi-Koi ×{round.players[opponent].koiKoiCalls}</span>
-          )}
-        </div>
-        <CapturePile cards={round.players[opponent].captured} compact />
-      </section>
+      <PileSummary
+        name={names[opponent]}
+        cards={round.players[opponent].captured}
+        rules={state.rules}
+        koiKoiCalls={round.players[opponent].koiKoiCalls}
+        active={theirTurn}
+        onOpen={() => setOpenPile(opponent)}
+      />
 
       <Board
         state={state}
@@ -138,19 +137,14 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
         }}
       />
 
-      <section className="tray tray--me">
-        <div className="tray__head">
-          <span>{names[seat]}</span>
-          {round.players[seat].koiKoiCalls > 0 && (
-            <span className="tray__koi">Koi-Koi ×{round.players[seat].koiKoiCalls}</span>
-          )}
-          <button type="button" className="tray__more" onClick={() => setSheet('yaku')}>
-            Yaku
-          </button>
-        </div>
-        <YakuStrip captured={round.players[seat].captured} rules={state.rules} />
-        <CapturePile cards={round.players[seat].captured} compact />
-      </section>
+      <PileSummary
+        name={names[seat]}
+        cards={round.players[seat].captured}
+        rules={state.rules}
+        koiKoiCalls={round.players[seat].koiKoiCalls}
+        active={!theirTurn && round.phase !== 'round-end'}
+        onOpen={() => setOpenPile(seat)}
+      />
 
       <footer className="statusbar">
         {theirTurn
@@ -162,8 +156,8 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
             : round.phase === 'choose-hand-target' || round.phase === 'choose-draw-target'
               ? 'Choose which card to take'
               : selected
-                ? 'Tap a matching field card, or tap again to discard'
-                : 'Tap a card from your hand'}
+                ? 'Tap a lit card to capture it'
+                : 'Slide across your hand, then tap a card'}
       </footer>
 
       {showKoiKoi && (
@@ -180,12 +174,8 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
           rules={state.rules}
           names={[names[0], names[1]]}
           // Show the totals including this round, otherwise the sheet reads
-          // "scores 4 points" next to an unchanged scoreline. The engine only
-          // banks the award when the next round is dealt.
-          scores={[
-            state.scores[0] + result.awarded[0],
-            state.scores[1] + result.awarded[1],
-          ]}
+          // "scores 4 points" next to an unchanged scoreline.
+          scores={[state.scores[0] + result.awarded[0], state.scores[1] + result.awarded[1]]}
           matchOver={false}
           onNext={() => session.submit({ type: 'nextRound' })}
         />
@@ -226,16 +216,20 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
         </div>
       )}
 
-      {sheet === 'yaku' && (
-        <div className="sheet" role="dialog" aria-modal="true" aria-label="Yaku progress">
+      {openPile !== null && (
+        <div className="sheet" role="dialog" aria-modal="true" aria-label="Captured cards">
           <div className="sheet__inner">
-            <YakuPanel captured={round.players[seat].captured} rules={state.rules} title="Your yaku" />
+            <header className="sheet__head">
+              <p className="sheet__kicker">Captured</p>
+              <h2>{names[openPile]}</h2>
+            </header>
+            <CapturePile cards={round.players[openPile].captured} />
             <YakuPanel
-              captured={round.players[opponent].captured}
+              captured={round.players[openPile].captured}
               rules={state.rules}
-              title={`${names[opponent]}'s yaku`}
+              title="Yaku progress"
             />
-            <button type="button" className="btn btn--ghost btn--wide" onClick={() => setSheet('none')}>
+            <button type="button" className="btn btn--ghost btn--wide" onClick={() => setOpenPile(null)}>
               Close
             </button>
           </div>

@@ -173,6 +173,26 @@ plain JSON, which is what makes the network layer and the search AI possible
 without a second implementation. The AI plays through the same
 `legalMoves`/`applyMove` API as a human, so it cannot make an illegal move.
 
+### The table
+
+Portrait-first, and laid out so the field never loses room:
+
+- **Capture piles are collapsed** into a fixed-height summary per player —
+  category counts and current points — opening a sheet with the full pile and
+  yaku progress. They used to be live piles that grew with every capture and
+  squeezed the field smaller each turn; it lost half its height in four turns.
+- **Your hand is fanned** into an arc. Slide across it (finger or cursor) to
+  bring each card forward without committing, then tap to pull one out onto
+  the table. A tap is told from a slide by distance travelled, so browsing
+  never plays a card by accident.
+- Cards that can take something wear a quiet gold rim; the forward card shows
+  its exact match count. If it can take nothing, the table itself becomes the
+  target and tapping it discards.
+- The fan's geometry is solved rather than tuned: rotating about a pivot below
+  the card swings the outer cards sideways, so `fanLayout()` measures the true
+  extent and scales the whole fan down until it fits the container. It stays
+  on screen at any hand size and any phone width.
+
 ### Matching rules
 
 Playing a card, and flipping the deck card, both follow the same rule:

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CARD_IDS, DECK, type CardId } from '../cards';
 import { GAMEDESIGN_RULES, STANDARD_RULES, type RuleConfig } from '../rules';
-import { evaluateTeyaku, evaluateYaku } from '../yaku';
+import { evaluateTeyaku, evaluateYaku, yakuForCard } from '../yaku';
 
 const idsOfKind = (kind: string): CardId[] => DECK.filter((c) => c.kind === kind).map((c) => c.id);
 
@@ -263,5 +263,64 @@ describe('teyaku', () => {
   it('returns nothing when teyaku are disabled', () => {
     const rules: RuleConfig = { ...STANDARD_RULES, teyakuEnabled: false };
     expect(evaluateTeyaku([...monthCards(1), ...pair(5), ...pair(9)], rules)).toEqual([]);
+  });
+});
+
+describe('yakuForCard', () => {
+  const of = (id: CardId, rules: RuleConfig = STANDARD_RULES) => yakuForCard(id, rules).sort();
+
+  it('offers every brights yaku to an ordinary bright', () => {
+    expect(of(CARD_IDS.CRANE)).toEqual(['goko', 'sanko', 'shiko']);
+    expect(of(CARD_IDS.PHOENIX)).toEqual(['goko', 'sanko', 'shiko']);
+  });
+
+  it('excludes the Rain Man from Shiko and Sanko', () => {
+    // The rule the UI most needs to convey: this bright is worth less.
+    expect(of(CARD_IDS.RAIN_MAN)).toEqual(['ame-shiko', 'goko']);
+    expect(of(CARD_IDS.RAIN_MAN)).not.toContain('shiko');
+    expect(of(CARD_IDS.RAIN_MAN)).not.toContain('sanko');
+  });
+
+  it('names Ino-Shika-Cho for its three cards only', () => {
+    for (const id of [CARD_IDS.BOAR, CARD_IDS.DEER, CARD_IDS.BUTTERFLIES]) {
+      expect(of(id), id).toContain('ino-shika-cho');
+    }
+    expect(of(CARD_IDS.SAKE_CUP)).not.toContain('ino-shika-cho');
+  });
+
+  it('gives the Sake Cup both drinking yaku', () => {
+    expect(of(CARD_IDS.SAKE_CUP)).toEqual(['hanami-zake', 'tane', 'tsukimi-zake']);
+  });
+
+  it('gives the Curtain and Moon their own drinking yaku', () => {
+    expect(of(CARD_IDS.CURTAIN)).toContain('hanami-zake');
+    expect(of(CARD_IDS.CURTAIN)).not.toContain('tsukimi-zake');
+    expect(of(CARD_IDS.MOON)).toContain('tsukimi-zake');
+    expect(of(CARD_IDS.MOON)).not.toContain('hanami-zake');
+  });
+
+  it('separates poetry, blue and plain ribbons', () => {
+    expect(of(POETRY[0] as CardId)).toEqual(['akatan', 'tanzaku']);
+    expect(of(BLUE[0] as CardId)).toEqual(['aotan', 'tanzaku']);
+    expect(of(PLAIN_RIBBONS[0] as CardId)).toEqual(['tanzaku']);
+  });
+
+  it('gives chaff only the Kasu yaku', () => {
+    const chaff = KASU[0] as CardId;
+    expect(of(chaff)).toEqual(['kasu']);
+  });
+
+  it('adds Kasu to the Sake Cup only under the tane-and-kasu rule', () => {
+    const rules: RuleConfig = { ...STANDARD_RULES, sakeCupMode: 'tane-and-kasu' };
+    expect(of(CARD_IDS.SAKE_CUP)).not.toContain('kasu');
+    expect(of(CARD_IDS.SAKE_CUP, rules)).toContain('kasu');
+  });
+
+  it('covers every card in the deck without throwing', () => {
+    for (const card of DECK) {
+      const list = yakuForCard(card.id, STANDARD_RULES);
+      expect(list.length, card.id).toBeGreaterThan(0);
+      expect(new Set(list).size, `${card.id} lists a yaku twice`).toBe(list.length);
+    }
   });
 });

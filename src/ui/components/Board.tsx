@@ -30,9 +30,20 @@ export interface BoardProps {
   onSelect(card: CardId | null): void;
   onPlay(card: CardId): void;
   onChooseTarget(card: CardId): void;
+  /** Show what a card is. Never fires when the tap means something in play. */
+  onInspect(card: CardId): void;
 }
 
-export function Board({ state, seat, canAct, selected, onSelect, onPlay, onChooseTarget }: BoardProps) {
+export function Board({
+  state,
+  seat,
+  canAct,
+  selected,
+  onSelect,
+  onPlay,
+  onChooseTarget,
+  onInspect,
+}: BoardProps) {
   const round = state.roundState;
   const myHand = round.players[seat].hand;
 
@@ -48,12 +59,21 @@ export function Board({ state, seat, canAct, selected, onSelect, onPlay, onChoos
     myHand.map((id) => [id, matchesFor(id, round.field).length]),
   );
 
+  /**
+   * A tap on the table means capture while a card is forward, and "what is
+   * this?" when nothing is. Keeping those apart is what stops the info panel
+   * from ever getting in the way of a move.
+   */
   const handleField = (id: CardId) => {
     if (choosing && choiceOptions.has(id)) {
       onChooseTarget(id);
       return;
     }
-    if (selected && selectableTargets.has(id)) onPlay(selected);
+    if (selected) {
+      if (selectableTargets.has(id)) onPlay(selected);
+      return;
+    }
+    onInspect(id);
   };
 
   const pending = round.pending;
@@ -84,7 +104,9 @@ export function Board({ state, seat, canAct, selected, onSelect, onPlay, onChoos
                 (goes ? ` board__slot--leave board__slot--leave-${goes}` : '')
               }
               onClick={() => handleField(id)}
-              disabled={!isTarget || Boolean(goes)}
+              // Tappable either as a capture target or, with nothing forward,
+              // to ask what the card is.
+              disabled={Boolean(goes) || (selected ? !isTarget : false)}
               aria-hidden={Boolean(goes)}
               aria-label={`${getCard(id).name}, ${getCard(id).suit}`}
             >
@@ -123,7 +145,7 @@ export function Board({ state, seat, canAct, selected, onSelect, onPlay, onChoos
 
 /** Must match the animation durations in the stylesheet. */
 const ENTER_MS = 440;
-const LEAVE_MS = 440;
+const LEAVE_MS = 418;
 
 interface FieldAnimation {
   /** Field cards plus any still animating out, in stable display order. */

@@ -417,7 +417,7 @@ code {
    so it is clear where they went rather than them simply disappearing. */
 .board__slot--leave {
   pointer-events: none;
-  animation: card-leave-down 0.44s cubic-bezier(0.4, 0, 0.7, 0.2) both;
+  animation: card-leave-down 0.418s cubic-bezier(0.4, 0, 0.7, 0.2) both;
 }
 
 .board__slot--leave-up {
@@ -1370,5 +1370,191 @@ code {
 .connecting__elapsed {
   font-variant-numeric: tabular-nums;
   font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------- card info */
+
+/* Fixed above the status bar rather than inline, so explaining a card costs
+   the table no height and never covers the field — with a card forward you
+   still have to reach a lit field card to capture it. */
+.cardinfo {
+  position: fixed;
+  left: 50%;
+  top: calc(var(--safe-t) + 0.5rem);
+  transform: translateX(-50%);
+  z-index: 25;
+  width: min(23rem, calc(100vw - 1.5rem));
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: var(--radius);
+  background: rgba(16, 16, 18, 0.96);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55);
+  animation: drop 0.18s ease;
+}
+
+/* Enters downward now that it sits at the top of the screen. */
+@keyframes drop {
+  from {
+    transform: translate(-50%, -0.75rem);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+.cardinfo img {
+  border-radius: 0.25rem;
+  flex: 0 0 auto;
+}
+
+.cardinfo__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.cardinfo__name {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.cardinfo__name em,
+.cardinfo__meta em {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 0.25rem;
+}
+
+.cardinfo__meta {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.cardinfo__kind {
+  color: var(--text);
+}
+
+.cardinfo__kind--hikari { color: #ffd980; }
+.cardinfo__kind--tane { color: #9fd3a0; }
+.cardinfo__kind--tanzaku { color: #f0a6a0; }
+
+.cardinfo__yaku {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  margin: 0.25rem 0 0;
+}
+
+.cardinfo__yaku span {
+  font-size: 0.64rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: rgba(232, 180, 35, 0.14);
+  border: 1px solid rgba(232, 180, 35, 0.38);
+  color: var(--gold);
+}
+
+.cardinfo__close {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+}
+
+/* -------------------------------------------------------- scoring sheet */
+
+.score {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.score__preset {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.score__group h4 {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.score__group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.score__group li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.score__group li:first-child {
+  border-top: 0;
+}
+
+.score__name {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+  min-width: 0;
+}
+
+.score__name em {
+  display: inline;
+  font-style: normal;
+  color: var(--muted);
+  font-size: 0.85em;
+  margin-left: 0.3rem;
+}
+
+.score__name small {
+  font-size: 0.68rem;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.score__pts {
+  flex: 0 0 auto;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  color: var(--gold);
+  font-size: 0.85rem;
+}
+
+.score__formula {
+  margin: 0.4rem 0 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
   color: var(--muted);
 }

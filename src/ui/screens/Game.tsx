@@ -4,7 +4,9 @@ import { MONTH_NAMES } from '../../engine/cards';
 import { currentYaku, matchesFor, type PlayerIndex } from '../../engine/game';
 import type { RuleConfig } from '../../engine/rules';
 import { Board } from '../components/Board';
+import { CardInfo } from '../components/CardInfo';
 import { Connecting } from '../components/Connecting';
+import { ScoreSheet } from '../components/ScoreSheet';
 import { CapturePile, PileSummary } from '../components/CapturePile';
 import { KoiKoiPrompt, RoundEnd } from '../components/RoundEnd';
 import { YakuPanel } from '../components/YakuPanel';
@@ -22,12 +24,16 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
   const [selected, setSelected] = useState<CardId | null>(null);
   /** Which player's capture detail is open, if any. */
   const [openPile, setOpenPile] = useState<PlayerIndex | null>(null);
+  /** The card whose details are on screen, if any. */
+  const [inspecting, setInspecting] = useState<CardId | null>(null);
+  const [showScores, setShowScores] = useState(false);
 
   const state = session.state;
 
   // Clear the selection whenever the position changes under us.
   useEffect(() => {
     setSelected(null);
+    setInspecting(null);
   }, [state?.roundState.phase, state?.roundState.current]);
 
   const isNetwork = config.mode === 'host' || config.mode === 'guest';
@@ -129,14 +135,21 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
         seat={seat}
         canAct={session.canAct}
         selected={selected}
-        onSelect={setSelected}
+        onSelect={(card) => {
+          setSelected(card);
+          // Pulling a card forward is also the moment to say what it is.
+          setInspecting(card);
+        }}
+        onInspect={setInspecting}
         onPlay={(card) => {
           session.submit({ type: 'play', card });
           setSelected(null);
+          setInspecting(null);
         }}
         onChooseTarget={(target) => {
           session.submit({ type: 'chooseTarget', target });
           setSelected(null);
+          setInspecting(null);
         }}
       />
 
@@ -165,6 +178,10 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
                   : 'No match — tap the table to discard'
                 : 'Slide across your hand, then tap a card'}
       </footer>
+
+      {inspecting && (
+        <CardInfo id={inspecting} rules={state.rules} onClose={() => setInspecting(null)} />
+      )}
 
       {showKoiKoi && (
         <KoiKoiPrompt
@@ -222,6 +239,21 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
         </div>
       )}
 
+      {showScores && (
+        <div className="sheet" role="dialog" aria-modal="true" aria-label="Scoring reference">
+          <div className="sheet__inner">
+            <header className="sheet__head">
+              <p className="sheet__kicker">Reference</p>
+              <h2>Scoring</h2>
+            </header>
+            <ScoreSheet rules={state.rules} />
+            <button type="button" className="btn btn--ghost btn--wide" onClick={() => setShowScores(false)}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
       {openPile !== null && (
         <div className="sheet" role="dialog" aria-modal="true" aria-label="Captured cards">
           <div className="sheet__inner">
@@ -235,6 +267,16 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
               rules={state.rules}
               title="Yaku progress"
             />
+            <button
+              type="button"
+              className="btn btn--wide"
+              onClick={() => {
+                setOpenPile(null);
+                setShowScores(true);
+              }}
+            >
+              Scoring reference — every combination and its points
+            </button>
             <button type="button" className="btn btn--ghost btn--wide" onClick={() => setOpenPile(null)}>
               Close
             </button>

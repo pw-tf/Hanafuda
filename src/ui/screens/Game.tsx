@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { CardId } from '../../engine/cards';
 import { MONTH_NAMES } from '../../engine/cards';
-import { currentYaku, type PlayerIndex } from '../../engine/game';
+import { currentYaku, matchesFor, type PlayerIndex } from '../../engine/game';
 import type { RuleConfig } from '../../engine/rules';
 import { Board } from '../components/Board';
+import { Connecting } from '../components/Connecting';
 import { CapturePile, PileSummary } from '../components/CapturePile';
 import { KoiKoiPrompt, RoundEnd } from '../components/RoundEnd';
 import { YakuPanel } from '../components/YakuPanel';
@@ -29,34 +30,30 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
     setSelected(null);
   }, [state?.roundState.phase, state?.roundState.current]);
 
-  // A guest has no state until the host's first snapshot arrives, so this
-  // screen has to carry the connection status on its own — it is the only
-  // feedback the joining player gets while the relay handshake happens.
+  const isNetwork = config.mode === 'host' || config.mode === 'guest';
+  const strategy = config.strategy ?? 'nostr';
+
+  // Both sides sit behind the overlay until the peers have actually found
+  // each other. The host used to get a playable board immediately and could
+  // take a turn into the void; the guest got a bare screen with no feedback.
+  if (isNetwork && (session.connection !== 'connected' || !state)) {
+    return (
+      <Connecting
+        status={session.connection}
+        detail={session.connectionDetail}
+        roomCode={config.roomCode}
+        strategy={strategy}
+        isHost={config.mode === 'host'}
+        onCancel={onExit}
+      />
+    );
+  }
+
   if (!state) {
-    const waiting: Record<string, string> = {
-      connecting: 'Connecting…',
-      waiting: 'Looking for the host…',
-      connected: 'Connected — waiting for the host to deal…',
-      'peer-left': 'The host disconnected.',
-      error: 'Could not connect.',
-      idle: 'Connecting…',
-    };
     return (
       <div className="screen screen--center">
-        <div className={`netbar netbar--${session.connection}`}>
-          {waiting[session.connection] ?? 'Connecting…'}
-        </div>
-        <p className="muted small">Room {config.roomCode}</p>
-        {session.connectionDetail && <p className="muted small">{session.connectionDetail}</p>}
-        {session.connection !== 'connected' && (
-          <p className="muted small">
-            Both players must choose the same connection method. If this does not connect,
-            go back and try the other one.
-          </p>
-        )}
-        <button type="button" className="btn btn--ghost" onClick={onExit}>
-          Leave
-        </button>
+        <div className="spinner" aria-hidden="true" />
+        <p className="muted small">Dealing…</p>
       </div>
     );
   }
@@ -76,6 +73,11 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
   const opponent: PlayerIndex = seat === 0 ? 1 : 0;
   const result = round.result;
   const myYaku = currentYaku(state, seat);
+
+  // Drives the status line: a forward card with no match is discarded by
+  // tapping the table, and that instruction has to live here rather than
+  // inside the field, where it grew the box and produced a scrollbar.
+  const selectedHasMatch = selected !== null && matchesFor(selected, round.field).length > 0;
 
   const showKoiKoi = round.phase === 'koikoi' && round.current === seat && session.canAct;
   const theirTurn = round.phase !== 'round-end' && round.current !== seat;
@@ -102,10 +104,10 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
         </div>
       </header>
 
-      {config.mode !== 'ai' && config.mode !== 'local' && (
+      {isNetwork && (
         <div className={`netbar netbar--${session.connection}`}>
           {session.connection === 'connected'
-            ? `Connected · ${STRATEGY_LABEL[config.strategy ?? 'nostr']}`
+            ? `Connected · ${STRATEGY_LABEL[strategy]}`
             : session.connection === 'peer-left'
               ? 'The other player disconnected'
               : (session.connectionDetail ?? 'Connecting…')}
@@ -156,7 +158,9 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
             : round.phase === 'choose-hand-target' || round.phase === 'choose-draw-target'
               ? 'Choose which card to take'
               : selected
-                ? 'Tap a lit card to capture it'
+                ? selectedHasMatch
+                  ? 'Tap a lit card to capture it'
+                  : 'No match — tap the table to discard'
                 : 'Slide across your hand, then tap a card'}
       </footer>
 

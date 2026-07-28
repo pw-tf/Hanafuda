@@ -33,6 +33,7 @@ import {
   type Strategy,
 } from '../net/protocol';
 import type { ConnectionStatus, RoomHandle, RoomHandlers } from '../net/room';
+import { clearGame, saveGame } from './persistence';
 
 export type SessionMode = 'ai' | 'local' | 'host' | 'guest';
 
@@ -42,6 +43,8 @@ export interface SessionConfig {
   difficulty: Difficulty;
   roomCode?: string;
   strategy?: Strategy;
+  /** A game restored from storage, resumed instead of dealt fresh. */
+  resume?: GameState;
 }
 
 export interface Session {
@@ -65,7 +68,7 @@ const DRAW_REVEAL_MS = 850;
 const AI_THINK_MS = 600;
 
 export function useGameSession(config: SessionConfig): Session {
-  const { mode, rules, difficulty, roomCode, strategy = 'nostr' } = config;
+  const { mode, rules, difficulty, roomCode, strategy = 'nostr', resume } = config;
 
   const isNetwork = mode === 'host' || mode === 'guest';
   const mySeat: PlayerIndex | null = mode === 'guest' ? 1 : 0;
@@ -75,9 +78,10 @@ export function useGameSession(config: SessionConfig): Session {
     [roomCode],
   );
 
-  const [state, setState] = useState<GameState | null>(() =>
-    mode === 'guest' ? null : createGame(rules, initialSeed, 0),
-  );
+  const [state, setState] = useState<GameState | null>(() => {
+    if (resume) return resume;
+    return mode === 'guest' ? null : createGame(rules, initialSeed, 0);
+  });
   const [connection, setConnection] = useState<ConnectionStatus>(isNetwork ? 'connecting' : 'idle');
   const [connectionDetail, setConnectionDetail] = useState<string | null>(null);
   const [lastRejection, setLastRejection] = useState<RejectReason | null>(null);
@@ -215,6 +219,28 @@ export function useGameSession(config: SessionConfig): Session {
   }, [mode, connection, rules]);
 
   // ---------------------------------------------------------------------
+  // Persistence
+  // ---------------------------------------------------------------------
+
+  // A guest owns no state — it mirrors the host — so there is nothing
+  // meaningful for it to restore, and saving would resurrect a stale
+  // position on refresh. Everyone else saves after every change.
+  useEffect(() => {
+    if (mode === 'guest' || !state) return;
+    if (state.matchOver) {
+      clearGame();
+      return;
+    }
+    saveGame({
+      mode,
+      difficulty,
+      state,
+      ...(roomCode ? { roomCode } : {}),
+      ...(strategy ? { strategy } : {}),
+    });
+  }, [state, mode, difficulty, roomCode, strategy]);
+
+  // ---------------------------------------------------------------------
   // Automatic progression: the deck flip, and the AI's turns
   // ---------------------------------------------------------------------
 
@@ -290,6 +316,7 @@ export function useGameSession(config: SessionConfig): Session {
 
   const restart = useCallback(() => {
     if (mode === 'guest') return;
+    clearGame();
     commit(createGame(rules, randomSeed(), 0));
   }, [mode, rules, commit]);
 

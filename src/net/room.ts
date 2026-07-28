@@ -59,7 +59,16 @@ export interface RoomHandle {
 }
 
 /** How long to wait for a peer before suggesting the relay may be blocked. */
-const BOOTSTRAP_TIMEOUT_MS = 15_000;
+const BOOTSTRAP_TIMEOUT_MS = 25_000;
+
+/**
+ * How many public endpoints to dial simultaneously. Trystero's defaults are
+ * 5 (Nostr) and 4 (MQTT); both pools contain endpoints that are frequently
+ * rate-limited or down, and only one working endpoint is needed, so a wider
+ * draw shortens the time to first contact.
+ */
+const NOSTR_REDUNDANCY = 8;
+const MQTT_REDUNDANCY = 5;
 
 /**
  * Join `code`. The room password is derived from the code, so only someone
@@ -70,7 +79,23 @@ export function connectRoom(
   handlers: RoomHandlers,
   strategy: Strategy = 'nostr',
 ): RoomHandle {
-  const config = { appId: APP_ID, password: `koikoi-${code}` };
+  const config = {
+    appId: APP_ID,
+    password: `koikoi-${code}`,
+    relayConfig: {
+      // Both strategies dial several public endpoints at once and only need
+      // one to answer. Some of them are routinely unhealthy — relay.damus.io
+      // rate-limits announce traffic ("you are noting too much") and
+      // broker.emqx.io is often refusing connections — so widening the pool
+      // makes a bad draw far less likely to slow the handshake down.
+      redundancy: strategy === 'mqtt' ? MQTT_REDUNDANCY : NOSTR_REDUNDANCY,
+      // Trystero logs a console warning per failing endpoint. With a pool
+      // this size a few failures are normal and expected, and the noise
+      // reads like a broken app. Genuine failure to connect is surfaced in
+      // the UI by the bootstrap timeout instead.
+      warnOnRelayFailure: false,
+    },
+  };
   const join = strategy === 'mqtt' ? joinMqtt : joinNostr;
   const room = join(config, code);
 

@@ -11,6 +11,9 @@ export function Menu({
   onMultiplayer,
   onSettings,
   onGallery,
+  resumable,
+  onResume,
+  onDiscardSave,
 }: {
   difficulty: Difficulty;
   onDifficulty(next: Difficulty): void;
@@ -19,6 +22,10 @@ export function Menu({
   onMultiplayer(): void;
   onSettings(): void;
   onGallery(): void;
+  /** Description of a saved game in progress, if there is one. */
+  resumable: string | null;
+  onResume(): void;
+  onDiscardSave(): void;
 }) {
   return (
     <div className="screen screen--menu">
@@ -36,6 +43,18 @@ export function Menu({
       </div>
 
       <div className="menu">
+        {resumable && (
+          <div className="resume">
+            <button type="button" className="btn btn--primary btn--wide" onClick={onResume}>
+              Resume game
+              <span className="resume__detail">{resumable}</span>
+            </button>
+            <button type="button" className="resume__discard" onClick={onDiscardSave}>
+              Discard saved game
+            </button>
+          </div>
+        )}
+
         <div className="menu__group">
           <label className="menu__label" id="difficulty-label">
             Opponent

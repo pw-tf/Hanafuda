@@ -417,7 +417,7 @@ code {
    so it is clear where they went rather than them simply disappearing. */
 .board__slot--leave {
   pointer-events: none;
-  animation: card-leave-down 0.46s cubic-bezier(0.4, 0, 0.7, 0.2) both;
+  animation: card-leave-down 0.418s cubic-bezier(0.4, 0, 0.7, 0.2) both;
 }
 
 .board__slot--leave-up {

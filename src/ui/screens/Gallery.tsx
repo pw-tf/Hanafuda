@@ -78,6 +78,31 @@ export function Gallery() {
           </figure>
         </div>
       </section>
+
+      <Attribution />
     </div>
+  );
+}
+
+/**
+ * Required by the artwork's licence, not decoration: CC BY-SA 4.0 obliges us
+ * to credit the author, name the licence and link to it wherever the work is
+ * shown. Also rendered in the menu footer.
+ */
+export function Attribution() {
+  return (
+    <footer className="credit">
+      <p>
+        Card artwork by{' '}
+        <a href="https://commons.wikimedia.org/wiki/Special:ListFiles/Louiemantia" target="_blank" rel="noreferrer">
+          Louie Mantia, Jr.
+        </a>
+        , from Wikimedia Commons, used unmodified under{' '}
+        <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">
+          CC BY-SA 4.0
+        </a>
+        .
+      </p>
+    </footer>
   );
 }

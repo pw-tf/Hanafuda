@@ -21,9 +21,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -38,6 +38,10 @@ jobs:
           BASE_PATH: /${{ github.event.repository.name }}/
         run: npm run build
 
+      # These three are pinned to their current latest. They still target
+      # Node 20 upstream, so the runner logs a Node 20 deprecation warning
+      # that cannot be cleared from here — it is a warning, not a failure,
+      # and it will go away when GitHub ships Node 24 builds of them.
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3

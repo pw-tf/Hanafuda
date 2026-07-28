@@ -4,7 +4,7 @@
 
 A vertical, mobile-first [Koi-Koi](https://en.wikipedia.org/wiki/Koi-Koi) game.
 Play the computer, pass and play on one device, or play a friend over WebRTC
-using a room code. No backend, no image assets, no tracking, nothing to install
+using a room code. No backend, no tracking, nothing to install
 — open the link on your phone and play.
 
 On iOS or Android you can **Add to Home Screen** for a full-screen, portrait
@@ -16,7 +16,7 @@ app icon; the manifest is already set up for it.
 ```sh
 npm install
 npm run dev      # http://localhost:5173
-npm test         # 116 tests
+npm test         # 123 tests
 npm run build    # typecheck + production build
 ```
 
@@ -30,9 +30,23 @@ Pushing to `main` builds and publishes to GitHub Pages via
 `.github/workflows/deploy.yml`. It runs the tests first, so a red suite blocks
 the deploy.
 
-**One-time setup:** in the repository's **Settings → Pages**, set **Source** to
-**GitHub Actions**. That switch cannot be flipped from a workflow, so the first
-deploy will not publish until it is done.
+**One-time setup**, neither of which a workflow can do for itself:
+
+1. **Settings → Pages → Source: GitHub Actions.** Ignore the "Jekyll" and
+   "Static HTML" starter cards that appear afterwards — the workflow already
+   exists, and clicking one would create a second, conflicting workflow.
+2. **Settings → Environments → `github-pages` → Deployment branches and tags:
+   allow `main`.** Enabling Pages creates a `github-pages` environment whose
+   branch policy permits only the repository's default branch at that moment.
+   If the default branch was something else when Pages was switched on, the
+   build succeeds and the deploy is rejected with:
+
+   > Branch "main" is not allowed to deploy to github-pages due to environment
+   > protection rules.
+
+   Setting **Settings → General → Default branch** to `main` is worth doing
+   too, but the stored branch policy does not always follow, so check the
+   environment rule directly.
 
 Routing is hash-based (`#/gallery`, `#/settings`), so no SPA rewrite rules or
 `404.html` fallback are needed, and the app works from any subdirectory. The
@@ -116,8 +130,25 @@ Two months are irregular and are where transcription errors usually creep in:
 (category totals, per-month counts, ribbon colours, both irregular months), so
 an accidental edit fails the suite instead of quietly corrupting scoring.
 
-All 48 card faces are hand-authored SVG in `src/art/`. No image files, no
-external requests, crisp at any size, and no licensing question.
+### Card artwork
+
+The 48 card faces are **Louie Mantia, Jr.'s** hanafuda deck, from Wikimedia
+Commons, used unmodified under
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). They live in
+`public/cards/<cardId>.svg`; `public/cards/CREDITS.json` records the original
+Commons filename behind every card, and [`NOTICE.md`](NOTICE.md) sets out what
+the licence asks of you if you fork or redistribute this.
+
+They are rendered as `<img>`, not inlined, and that is deliberate: every file
+declares the same element ids (`clip-path`, `Paper_Backing`, …) and the same
+CSS class names (`.cls-1`, `.cls-2`, …) but with different colours per card.
+Inlined into one document, each card's `<style>` block would repaint every
+other card and `url(#clip-path)` would resolve to whichever element came
+first. As separate `<img>` documents none of that can happen, and the browser
+lazy-loads and caches them for free.
+
+The card *back* is this project's own work, since the Commons set is faces
+only.
 
 ---
 
@@ -132,7 +163,7 @@ src/engine/   pure, serializable, framework-free game logic
   game.ts       turn/round/match state machine
   rng.ts        seeded mulberry32
 src/ai/       easy (random), normal (greedy), hard (determinized Monte Carlo)
-src/art/      48 card faces + shared drawing primitives
+src/art/      card renderer + palette (faces are assets in public/cards/)
 src/net/      room codes, wire protocol, Trystero WebRTC wrapper
 src/ui/       portrait-first React screens
 ```
@@ -141,6 +172,26 @@ The engine is pure: `applyMove` never mutates its input and a `GameState` is
 plain JSON, which is what makes the network layer and the search AI possible
 without a second implementation. The AI plays through the same
 `legalMoves`/`applyMove` API as a human, so it cannot make an illegal move.
+
+### The table
+
+Portrait-first, and laid out so the field never loses room:
+
+- **Capture piles are collapsed** into a fixed-height summary per player —
+  category counts and current points — opening a sheet with the full pile and
+  yaku progress. They used to be live piles that grew with every capture and
+  squeezed the field smaller each turn; it lost half its height in four turns.
+- **Your hand is fanned** into an arc. Slide across it (finger or cursor) to
+  bring each card forward without committing, then tap to pull one out onto
+  the table. A tap is told from a slide by distance travelled, so browsing
+  never plays a card by accident.
+- Cards that can take something wear a quiet gold rim; the forward card shows
+  its exact match count. If it can take nothing, the table itself becomes the
+  target and tapping it discards.
+- The fan's geometry is solved rather than tuned: rotating about a pivot below
+  the card swings the outer cards sideways, so `fanLayout()` measures the true
+  extent and scales the whole fan down until it fits the container. It stays
+  on screen at any hand size and any phone width.
 
 ### Matching rules
 
@@ -196,7 +247,7 @@ read aloud round-trips reliably.
 
 ## Testing
 
-`npm test` — 116 tests, ~30 s.
+`npm test` — 123 tests, ~25 s.
 
 - **Deck structure** — all invariants listed above.
 - **Yaku truth table** — every yaku at its threshold and one below; brights

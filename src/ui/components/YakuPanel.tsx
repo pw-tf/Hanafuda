@@ -3,7 +3,7 @@
  * to the rest, so the scoring is never a mystery mid-round.
  */
 
-import { CARD_IDS, getCard, type CardId } from '../../engine/cards';
+import { CARD_IDS, type CardId } from '../../engine/cards';
 import type { RuleConfig, YakuId } from '../../engine/rules';
 import { YAKU_INFO } from '../../engine/rules';
 import { countCaptures, evaluateYaku } from '../../engine/yaku';
@@ -103,21 +103,3 @@ export function YakuPanel({
     </div>
   );
 }
-
-/** Compact strip used above the hand during play. */
-export function YakuStrip({ captured, rules }: { captured: readonly CardId[]; rules: RuleConfig }) {
-  const { yaku, base } = evaluateYaku(captured, rules);
-  if (yaku.length === 0) return null;
-  return (
-    <div className="strip">
-      {yaku.map((y) => (
-        <span key={y.id} className="strip__chip">
-          {YAKU_INFO[y.id].name} <b>{y.points}</b>
-        </span>
-      ))}
-      <span className="strip__total">{base}</span>
-    </div>
-  );
-}
-
-export { computeProgress, getCard };

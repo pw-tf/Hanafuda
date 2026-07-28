@@ -1,5 +1,5 @@
 /**
- * The playing surface: opponent's hand, the field, the draw pile, your hand.
+ * The playing surface: the field, and your hand.
  *
  * Interaction is two-stage. Sliding across the fan browses; tapping pulls a
  * card forward onto the table. Once a card is forward, the field cards it can
@@ -8,12 +8,17 @@
  *
  * The ambiguous two-match case therefore needs no special modal: it is just
  * the normal "two things lit up, pick one" flow.
+ *
+ * The draw pile and the opponent's hand are not drawn here. They used to be
+ * full rows of card backs above and below the field, which cost the table a
+ * lot of height to communicate two numbers; both now live as a small stack on
+ * the corresponding capture summary bar.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { getCard, type CardId } from '../../engine/cards';
 import { matchesFor, type GameState, type PlayerIndex } from '../../engine/game';
-import { CardBack, CardFace } from '../../art/CardFace';
+import { CardFace } from '../../art/CardFace';
 import { Hand } from './Hand';
 
 export interface BoardProps {
@@ -29,9 +34,7 @@ export interface BoardProps {
 
 export function Board({ state, seat, canAct, selected, onSelect, onPlay, onChooseTarget }: BoardProps) {
   const round = state.roundState;
-  const opponent: PlayerIndex = seat === 0 ? 1 : 0;
   const myHand = round.players[seat].hand;
-  const theirHand = round.players[opponent].hand;
 
   const choosing = round.phase === 'choose-hand-target' || round.phase === 'choose-draw-target';
   const choiceOptions = new Set(choosing ? (round.pending?.options ?? []) : []);
@@ -56,28 +59,20 @@ export function Board({ state, seat, canAct, selected, onSelect, onPlay, onChoos
   const pending = round.pending;
   const drawn = round.trace.drawnCard;
 
-  // Cards that have just arrived on the field, so they can slide in from the
-  // direction they were played from rather than blinking into existence.
-  const arriving = useArrivals(round.field);
+  // Captures are made by whoever is on turn, so a card leaving the field
+  // travels towards their side of the table.
+  const captureDirection = round.trace.player === seat ? 'down' : 'up';
+  const { order, arriving, leaving } = useFieldAnimation(round.field, captureDirection);
 
   return (
     <div className="board">
-      {/* Opponent's hand, face down. */}
-      <div className="board__oppHand" aria-label={`Opponent holds ${theirHand.length} cards`}>
-        {theirHand.map((id, i) => (
-          <span key={id} className="board__oppCard" style={{ marginLeft: i === 0 ? 0 : '-1.5rem' }}>
-            <CardBack width={30} />
-          </span>
-        ))}
-      </div>
-
-      {/* The field. */}
       <div
         className={`board__field${discardArmed ? ' board__field--discard' : ''}`}
         onClick={discardArmed && selected ? () => onPlay(selected) : undefined}
       >
-        {round.field.map((id) => {
+        {order.map((id) => {
           const isTarget = selectableTargets.has(id) || choiceOptions.has(id);
+          const goes = leaving.get(id);
           return (
             <button
               key={id}
@@ -85,39 +80,34 @@ export function Board({ state, seat, canAct, selected, onSelect, onPlay, onChoos
               className={
                 'board__slot' +
                 (isTarget ? ' board__slot--target' : '') +
-                (arriving.has(id) ? ' board__slot--enter' : '')
+                (arriving.has(id) ? ' board__slot--enter' : '') +
+                (goes ? ` board__slot--leave board__slot--leave-${goes}` : '')
               }
               onClick={() => handleField(id)}
-              disabled={!isTarget}
+              disabled={!isTarget || Boolean(goes)}
+              aria-hidden={Boolean(goes)}
               aria-label={`${getCard(id).name}, ${getCard(id).suit}`}
             >
               <CardFace id={id} width={56} eager />
             </button>
           );
         })}
-        {round.field.length === 0 && <p className="board__fieldEmpty">The field is clear</p>}
-      </div>
 
-      {/* Draw pile and the card currently in flight. */}
-      <div className="board__deck">
-        <div className="board__deckStack">
-          <CardBack width={40} />
-          <span className="board__deckCount">{round.deck.length}</span>
-        </div>
-        <div className="board__flight">
-          {pending && (
-            <div className="board__flightCard board__flightCard--pending">
-              <CardFace id={pending.card} width={44} eager />
-              <span>Pick one</span>
-            </div>
-          )}
-          {!pending && drawn && (
-            <div className="board__flightCard">
-              <CardFace id={drawn} width={44} eager />
-              <span>Drawn</span>
-            </div>
-          )}
-        </div>
+        {order.length === 0 && <p className="board__fieldEmpty">The field is clear</p>}
+
+        {/* The card in flight, overlaid so it costs the field no height. */}
+        {pending && (
+          <div className="board__flight board__flight--pending">
+            <CardFace id={pending.card} width={44} eager />
+            <span>Pick one</span>
+          </div>
+        )}
+        {!pending && drawn && (
+          <div className="board__flight">
+            <CardFace id={drawn} width={44} eager />
+            <span>Drawn</span>
+          </div>
+        )}
       </div>
 
       <Hand
@@ -131,31 +121,95 @@ export function Board({ state, seat, canAct, selected, onSelect, onPlay, onChoos
   );
 }
 
-/**
- * Tracks which field cards are new since the previous render.
- *
- * The engine hands us a flat list of field cards with no history, so "did this
- * card just land?" has to be derived by diffing against the last list. The
- * arrival flag is cleared on a timer so the animation runs once and the card
- * then sits still.
- */
-function useArrivals(field: readonly CardId[]): ReadonlySet<CardId> {
-  const previous = useRef<readonly CardId[]>(field);
-  const [arriving, setArriving] = useState<ReadonlySet<CardId>>(new Set());
+/** Must match the animation durations in the stylesheet. */
+const ENTER_MS = 440;
+const LEAVE_MS = 440;
 
-  useEffect(() => {
-    const before = new Set(previous.current);
-    const fresh = field.filter((id) => !before.has(id));
-    previous.current = field;
-    if (fresh.length === 0) return;
-
-    setArriving(new Set(fresh));
-    const timer = setTimeout(() => setArriving(new Set()), ENTER_MS);
-    return () => clearTimeout(timer);
-  }, [field]);
-
-  return arriving;
+interface FieldAnimation {
+  /** Field cards plus any still animating out, in stable display order. */
+  order: CardId[];
+  arriving: ReadonlySet<CardId>;
+  leaving: ReadonlyMap<CardId, 'up' | 'down'>;
 }
 
-/** Must match the `card-land` animation duration in the stylesheet. */
-const ENTER_MS = 420;
+/**
+ * Tracks cards entering and leaving the field.
+ *
+ * The engine hands over a flat list with no history, so both are derived by
+ * diffing against the previous render. Departing cards are held in the layout
+ * for the length of their animation and rendered in their old position —
+ * without that they vanish instantly and the field reflows underneath, which
+ * is exactly the jump that made captures hard to follow.
+ *
+ * The display order is state rather than something recomputed during render.
+ * Deriving it inline drops a captured card on the very render the engine
+ * removes it — before the effect has had any chance to mark it as leaving —
+ * so the animation never gets a frame to run in.
+ *
+ * `useLayoutEffect` matters too: it runs before paint, so the departing card
+ * is still on screen for the frame in which its animation starts.
+ */
+function useFieldAnimation(field: readonly CardId[], direction: 'up' | 'down'): FieldAnimation {
+  const previous = useRef<readonly CardId[]>(field);
+  const [order, setOrder] = useState<CardId[]>(() => [...field]);
+  const [arriving, setArriving] = useState<ReadonlySet<CardId>>(new Set());
+  const [leaving, setLeaving] = useState<ReadonlyMap<CardId, 'up' | 'down'>>(new Map());
+
+  useLayoutEffect(() => {
+    const before = previous.current;
+    const beforeSet = new Set(before);
+    const nowSet = new Set(field);
+
+    const fresh = field.filter((id) => !beforeSet.has(id));
+    const gone = before.filter((id) => !nowSet.has(id));
+    previous.current = field;
+
+    if (fresh.length === 0 && gone.length === 0) {
+      // Order can still differ (e.g. a fresh deal), so resync.
+      setOrder((current) =>
+        current.length === field.length && current.every((id, i) => id === field[i])
+          ? current
+          : [...field],
+      );
+      return;
+    }
+
+    const goneSet = new Set(gone);
+    setOrder((current) => {
+      const kept = current.filter((id) => nowSet.has(id) || goneSet.has(id));
+      const missing = field.filter((id) => !kept.includes(id));
+      return [...kept, ...missing];
+    });
+
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    if (fresh.length > 0) {
+      setArriving(new Set(fresh));
+      timers.push(setTimeout(() => setArriving(new Set()), ENTER_MS));
+    }
+
+    if (gone.length > 0) {
+      // Merge, so a second capture while one is still animating does not
+      // cancel the first.
+      setLeaving((current) => {
+        const next = new Map(current);
+        for (const id of gone) next.set(id, direction);
+        return next;
+      });
+      timers.push(
+        setTimeout(() => {
+          setLeaving((current) => {
+            const next = new Map(current);
+            for (const id of gone) next.delete(id);
+            return next;
+          });
+          setOrder((current) => current.filter((id) => !goneSet.has(id)));
+        }, LEAVE_MS),
+      );
+    }
+
+    return () => timers.forEach(clearTimeout);
+  }, [field, direction]);
+
+  return { order, arriving, leaving };
+}

@@ -9,6 +9,7 @@ import { Connecting } from '../components/Connecting';
 import { ScoreSheet } from '../components/ScoreSheet';
 import { CapturePile, PileSummary } from '../components/CapturePile';
 import { KoiKoiPrompt, RoundEnd } from '../components/RoundEnd';
+import { Sheet } from '../components/Sheet';
 import { YakuPanel } from '../components/YakuPanel';
 import { useGameSession, type SessionConfig } from '../useGameSession';
 import { STRATEGY_LABEL } from '../../net/protocol';
@@ -205,83 +206,85 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
       )}
 
       {state.matchOver && (
-        <div className="sheet" role="dialog" aria-modal="true" aria-label="Match result">
-          <div className="sheet__inner sheet__inner--tight">
-            <p className="sheet__kicker">Match over</p>
-            <h2>
-              {state.scores[seat] > state.scores[opponent]
-                ? 'You win'
-                : state.scores[seat] < state.scores[opponent]
-                  ? `${names[opponent]} wins`
-                  : 'A draw'}
-            </h2>
-            <div className="sheet__scores">
-              <div>
-                <span>{names[seat]}</span>
-                <b>{state.scores[seat]}</b>
-              </div>
-              <div>
-                <span>{names[opponent]}</span>
-                <b>{state.scores[opponent]}</b>
-              </div>
+        <Sheet label="Match result" dismissible={false} className="sheet__inner--tight">
+          <p className="sheet__kicker">Match over</p>
+          <h2>
+            {state.scores[seat] > state.scores[opponent]
+              ? 'You win'
+              : state.scores[seat] < state.scores[opponent]
+                ? `${names[opponent]} wins`
+                : 'A draw'}
+          </h2>
+          <div className="sheet__scores">
+            <div>
+              <span>{names[seat]}</span>
+              <b>{state.scores[seat]}</b>
             </div>
-            <div className="sheet__choices">
-              <button type="button" className="btn btn--ghost btn--wide" onClick={onExit}>
-                Back to menu
-              </button>
-              {config.mode !== 'guest' && (
-                <button type="button" className="btn btn--primary btn--wide" onClick={session.restart}>
-                  Play again
-                </button>
-              )}
+            <div>
+              <span>{names[opponent]}</span>
+              <b>{state.scores[opponent]}</b>
             </div>
           </div>
-        </div>
+          <div className="sheet__choices">
+            <button type="button" className="btn btn--ghost btn--wide" onClick={onExit}>
+              Back to menu
+            </button>
+            {config.mode !== 'guest' && (
+              <button type="button" className="btn btn--primary btn--wide" onClick={session.restart}>
+                Play again
+              </button>
+            )}
+          </div>
+        </Sheet>
       )}
 
       {showScores && (
-        <div className="sheet" role="dialog" aria-modal="true" aria-label="Scoring reference">
-          <div className="sheet__inner">
-            <header className="sheet__head">
-              <p className="sheet__kicker">Reference</p>
-              <h2>Scoring</h2>
-            </header>
-            <ScoreSheet rules={state.rules} />
-            <button type="button" className="btn btn--ghost btn--wide" onClick={() => setShowScores(false)}>
-              Close
-            </button>
-          </div>
-        </div>
+        <Sheet label="Score guide" onDismiss={() => setShowScores(false)}>
+          <header className="sheet__head">
+            <p className="sheet__kicker">Reference</p>
+            <h2>Score guide</h2>
+          </header>
+          <ScoreSheet rules={state.rules} />
+          <button
+            type="button"
+            className="btn btn--ghost btn--wide"
+            onClick={() => setShowScores(false)}
+          >
+            Close
+          </button>
+        </Sheet>
       )}
 
       {openPile !== null && (
-        <div className="sheet" role="dialog" aria-modal="true" aria-label="Captured cards">
-          <div className="sheet__inner">
-            <header className="sheet__head">
-              <p className="sheet__kicker">Captured</p>
-              <h2>{names[openPile]}</h2>
-            </header>
-            <CapturePile cards={round.players[openPile].captured} />
-            <YakuPanel
-              captured={round.players[openPile].captured}
-              rules={state.rules}
-              title="Yaku progress"
-            />
-            <button
-              type="button"
-              className="btn btn--wide"
-              onClick={() => {
-                setOpenPile(null);
-                setShowScores(true);
-              }}
-            >
-              Scoring reference — every combination and its points
-            </button>
-            <button type="button" className="btn btn--ghost btn--wide" onClick={() => setOpenPile(null)}>
-              Close
-            </button>
-          </div>
-        </div>
+        <Sheet label="Captured cards" onDismiss={() => setOpenPile(null)}>
+          <header className="sheet__head">
+            <p className="sheet__kicker">Captured</p>
+            <h2>{names[openPile]}</h2>
+          </header>
+          <CapturePile cards={round.players[openPile].captured} />
+          <YakuPanel
+            captured={round.players[openPile].captured}
+            rules={state.rules}
+            title="Yaku progress"
+          />
+          <button
+            type="button"
+            className="btn btn--wide"
+            onClick={() => {
+              setOpenPile(null);
+              setShowScores(true);
+            }}
+          >
+            Score guide
+          </button>
+          <button
+            type="button"
+            className="btn btn--ghost btn--wide"
+            onClick={() => setOpenPile(null)}
+          >
+            Close
+          </button>
+        </Sheet>
       )}
     </div>
   );

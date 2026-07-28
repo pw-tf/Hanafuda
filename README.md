@@ -4,7 +4,7 @@
 
 A vertical, mobile-first [Koi-Koi](https://en.wikipedia.org/wiki/Koi-Koi) game.
 Play the computer, pass and play on one device, or play a friend over WebRTC
-using a room code. No backend, no image assets, no tracking, nothing to install
+using a room code. No backend, no tracking, nothing to install
 — open the link on your phone and play.
 
 On iOS or Android you can **Add to Home Screen** for a full-screen, portrait
@@ -16,7 +16,7 @@ app icon; the manifest is already set up for it.
 ```sh
 npm install
 npm run dev      # http://localhost:5173
-npm test         # 116 tests
+npm test         # 123 tests
 npm run build    # typecheck + production build
 ```
 
@@ -130,8 +130,25 @@ Two months are irregular and are where transcription errors usually creep in:
 (category totals, per-month counts, ribbon colours, both irregular months), so
 an accidental edit fails the suite instead of quietly corrupting scoring.
 
-All 48 card faces are hand-authored SVG in `src/art/`. No image files, no
-external requests, crisp at any size, and no licensing question.
+### Card artwork
+
+The 48 card faces are **Louie Mantia, Jr.'s** hanafuda deck, from Wikimedia
+Commons, used unmodified under
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). They live in
+`public/cards/<cardId>.svg`; `public/cards/CREDITS.json` records the original
+Commons filename behind every card, and [`NOTICE.md`](NOTICE.md) sets out what
+the licence asks of you if you fork or redistribute this.
+
+They are rendered as `<img>`, not inlined, and that is deliberate: every file
+declares the same element ids (`clip-path`, `Paper_Backing`, …) and the same
+CSS class names (`.cls-1`, `.cls-2`, …) but with different colours per card.
+Inlined into one document, each card's `<style>` block would repaint every
+other card and `url(#clip-path)` would resolve to whichever element came
+first. As separate `<img>` documents none of that can happen, and the browser
+lazy-loads and caches them for free.
+
+The card *back* is this project's own work, since the Commons set is faces
+only.
 
 ---
 
@@ -146,7 +163,7 @@ src/engine/   pure, serializable, framework-free game logic
   game.ts       turn/round/match state machine
   rng.ts        seeded mulberry32
 src/ai/       easy (random), normal (greedy), hard (determinized Monte Carlo)
-src/art/      48 card faces + shared drawing primitives
+src/art/      card renderer + palette (faces are assets in public/cards/)
 src/net/      room codes, wire protocol, Trystero WebRTC wrapper
 src/ui/       portrait-first React screens
 ```
@@ -210,7 +227,7 @@ read aloud round-trips reliably.
 
 ## Testing
 
-`npm test` — 116 tests, ~30 s.
+`npm test` — 123 tests, ~25 s.
 
 - **Deck structure** — all invariants listed above.
 - **Yaku truth table** — every yaku at its threshold and one below; brights

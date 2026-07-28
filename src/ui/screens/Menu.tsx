@@ -1,6 +1,7 @@
 import { DIFFICULTY_BLURB, DIFFICULTY_LABEL, type Difficulty } from '../../ai';
 import { CardFace } from '../../art/CardFace';
 import { CARD_IDS } from '../../engine/cards';
+import { Attribution } from './Gallery';
 
 export function Menu({
   difficulty,
@@ -73,6 +74,8 @@ export function Menu({
             Card deck
           </button>
         </div>
+
+        <Attribution />
       </div>
     </div>
   );

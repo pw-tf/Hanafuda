@@ -1,0 +1,248 @@
+{
+  "source": "https://commons.wikimedia.org/wiki/Special:ListFiles/Louiemantia",
+  "author": "Louie Mantia, Jr.",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "cards": {
+    "m1-0": {
+      "month": "January",
+      "kind": "hikari",
+      "originalFile": "Hanafuda_January_Hikari.svg"
+    },
+    "m1-1": {
+      "month": "January",
+      "kind": "tanzaku",
+      "originalFile": "Hanafuda_January_Tanzaku.svg"
+    },
+    "m1-2": {
+      "month": "January",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_January_Kasu_1.svg"
+    },
+    "m1-3": {
+      "month": "January",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_January_Kasu_2.svg"
+    },
+    "m2-0": {
+      "month": "February",
+      "kind": "tane",
+      "originalFile": "Hanafuda_February_Tane.svg"
+    },
+    "m2-1": {
+      "month": "February",
+      "kind": "tanzaku",
+      "originalFile": "Hanafuda_February_Tanzaku.svg"
+    },
+    "m2-2": {
+      "month": "February",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_February_Kasu_1.svg"
+    },
+    "m2-3": {
+      "month": "February",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_February_Kasu_2.svg"
+    },
+    "m3-0": {
+      "month": "March",
+      "kind": "hikari",
+      "originalFile": "Hanafuda_March_Hikari.svg"
+    },
+    "m3-1": {
+      "month": "March",
+      "kind": "tanzaku",
+      "originalFile": "Hanafuda_March_Tanzaku.svg"
+    },
+    "m3-2": {
+      "month": "March",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_March_Kasu_1.svg"
+    },
+    "m3-3": {
+      "month": "March",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_March_Kasu_2.svg"
+    },
+    "m4-0": {
+      "month": "April",
+      "kind": "tane",
+      "originalFile": "Hanafuda_April_Tane.svg"
+    },
+    "m4-1": {
+      "month": "April",
+      "kind": "tanzaku",
+      "originalFile": "Hanafuda_April_Tanzaku.svg"
+    },
+    "m4-2": {
+      "month": "April",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_April_Kasu_1.svg"
+    },
+    "m4-3": {
+      "month": "April",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_April_Kasu_2.svg"
+    },
+    "m5-0": {
+      "month": "May",
+      "kind": "tane",
+      "originalFile": "Hanafuda_May_Tane.svg"
+    },
+    "m5-1": {
+      "month": "May",
+      "kind": "tanzaku",
+      "originalFile": "Hanafuda_May_Tanzaku.svg"
+    },
+    "m5-2": {
+      "month": "May",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_May_Kasu_1.svg"
+    },
+    "m5-3": {
+      "month": "May",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_May_Kasu_2.svg"
+    },
+    "m6-0": {
+      "month": "June",
+      "kind": "tane",
+      "originalFile": "Hanafuda_June_Tane.svg"
+    },
+    "m6-1": {
+      "month": "June",
+      "kind": "tanzaku",
+      "originalFile": "Hanafuda_June_Tanzaku.svg"
+    },
+    "m6-2": {
+      "month": "June",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_June_Kasu_1.svg"
+    },
+    "m6-3": {
+      "month": "June",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_June_Kasu_2.svg"
+    },
+    "m7-0": {
+      "month": "July",
+      "kind": "tane",
+      "originalFile": "Hanafuda_July_Tane.svg"
+    },
+    "m7-1": {
+      "month": "July",
+      "kind": "tanzaku",
+      "originalFile": "Hanafuda_July_Tanzaku.svg"
+    },
+    "m7-2": {
+      "month": "July",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_July_Kasu_1.svg"
+    },
+    "m7-3": {
+      "month": "July",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_July_Kasu_2.svg"
+    },
+    "m8-0": {
+      "month": "August",
+      "kind": "hikari",
+      "originalFile": "Hanafuda_August_Hikari.svg"
+    },
+    "m8-1": {
+      "month": "August",
+      "kind": "tane",
+      "originalFile": "Hanafuda_August_Tane.svg"
+    },
+    "m8-2": {
+      "month": "August",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_August_Kasu_1.svg"
+    },
+    "m8-3": {
+      "month": "August",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_August_Kasu_2.svg"
+    },
+    "m9-0": {
+      "month": "September",
+      "kind": "tane",
+      "originalFile": "Hanafuda_September_Tane.svg"
+    },
+    "m9-1": {
+      "month": "September",
+      "kind": "tanzaku",
+      "originalFile": "Hanafuda_September_Tanzaku.svg"
+    },
+    "m9-2": {
+      "month": "September",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_September_Kasu_1.svg"
+    },
+    "m9-3": {
+      "month": "September",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_September_Kasu_2.svg"
+    },
+    "m10-0": {
+      "month": "October",
+      "kind": "tane",
+      "originalFile": "Hanafuda_October_Tane.svg"
+    },
+    "m10-1": {
+      "month": "October",
+      "kind": "tanzaku",
+      "originalFile": "Hanafuda_October_Tanzaku.svg"
+    },
+    "m10-2": {
+      "month": "October",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_October_Kasu_1.svg"
+    },
+    "m10-3": {
+      "month": "October",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_October_Kasu_2.svg"
+    },
+    "m11-0": {
+      "month": "November",
+      "kind": "hikari",
+      "originalFile": "Hanafuda_November_Hikari.svg"
+    },
+    "m11-1": {
+      "month": "November",
+      "kind": "tane",
+      "originalFile": "Hanafuda_November_Tane.svg"
+    },
+    "m11-2": {
+      "month": "November",
+      "kind": "tanzaku",
+      "originalFile": "Hanafuda_November_Tanzaku.svg"
+    },
+    "m11-3": {
+      "month": "November",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_November_Kasu.svg"
+    },
+    "m12-0": {
+      "month": "December",
+      "kind": "hikari",
+      "originalFile": "Hanafuda_December_Hikari.svg"
+    },
+    "m12-1": {
+      "month": "December",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_December_Kasu_1.svg"
+    },
+    "m12-2": {
+      "month": "December",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_December_Kasu_2.svg"
+    },
+    "m12-3": {
+      "month": "December",
+      "kind": "kasu",
+      "originalFile": "Hanafuda_December_Kasu_3.svg"
+    }
+  }
+}

@@ -1110,3 +1110,23 @@ code {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Licence attribution for the card artwork (CC BY-SA 4.0). Shown on the menu
+   and the deck screen — required wherever the work is displayed. */
+.credit {
+  margin-top: 0.75rem;
+  text-align: center;
+}
+
+.credit p {
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.credit a {
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

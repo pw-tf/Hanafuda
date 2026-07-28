@@ -1,9 +1,17 @@
 # Hanafuda Koi-Koi
 
+### ▶︎ Play: **https://pw-tf.github.io/Hanafuda/**
+
 A vertical, mobile-first [Koi-Koi](https://en.wikipedia.org/wiki/Koi-Koi) game.
 Play the computer, pass and play on one device, or play a friend over WebRTC
-using a room code. No backend, no image assets, no tracking — it builds to a
-static site.
+using a room code. No backend, no image assets, no tracking, nothing to install
+— open the link on your phone and play.
+
+On iOS or Android you can **Add to Home Screen** for a full-screen, portrait
+app icon; the manifest is already set up for it.
+
+<details>
+<summary>Running it locally</summary>
 
 ```sh
 npm install
@@ -14,6 +22,22 @@ npm run build    # typecheck + production build
 
 Open `#/gallery` in the running app to see all 48 card faces with their names
 and categories.
+</details>
+
+## Deployment
+
+Pushing to `main` builds and publishes to GitHub Pages via
+`.github/workflows/deploy.yml`. It runs the tests first, so a red suite blocks
+the deploy.
+
+**One-time setup:** in the repository's **Settings → Pages**, set **Source** to
+**GitHub Actions**. That switch cannot be flipped from a workflow, so the first
+deploy will not publish until it is done.
+
+Routing is hash-based (`#/gallery`, `#/settings`), so no SPA rewrite rules or
+`404.html` fallback are needed, and the app works from any subdirectory. The
+asset base path comes from `BASE_PATH`, which the workflow sets to the
+repository name; for a root-hosted deploy just leave it unset.
 
 ---
 

@@ -3,6 +3,8 @@ import { applyMove, createGame, legalMoves, type GameState, type Move } from '..
 import { createRng } from '../../engine/rng';
 import { STANDARD_RULES } from '../../engine/rules';
 import {
+  MAX_NAME_LENGTH,
+  sanitizeName,
   decodeMove,
   decodeRules,
   decodeState,
@@ -182,5 +184,53 @@ describe('host/guest replication', () => {
     receive(2, second);
     receive(1, first); // late delivery of the older snapshot
     expect(guest).toEqual(second);
+  });
+});
+
+describe('nicknames', () => {
+  // A nickname is typed on the other player's device and rendered on this
+  // one, so it is untrusted input however friendly the context.
+  it('keeps an ordinary name unchanged', () => {
+    expect(sanitizeName('Kai', 'Friend')).toBe('Kai');
+    expect(sanitizeName('  Kai  ', 'Friend')).toBe('Kai');
+  });
+
+  it('falls back when there is nothing to show', () => {
+    expect(sanitizeName('', 'Friend')).toBe('Friend');
+    expect(sanitizeName('   ', 'Friend')).toBe('Friend');
+    expect(sanitizeName('\n\t', 'Friend')).toBe('Friend');
+    expect(sanitizeName(undefined as unknown as string, 'Friend')).toBe('Friend');
+  });
+
+  it('turns control characters into spaces and collapses whitespace', () => {
+    // Mapped to a space rather than deleted. Dropping them outright would
+    // splice two words together, so a name smuggling a NUL mid-word would
+    // render as a perfectly ordinary one.
+    expect(sanitizeName('Ka\u0000i', 'Friend')).toBe('Ka i');
+    expect(sanitizeName('Kai\u007f', 'Friend')).toBe('Kai');
+    expect(sanitizeName('a\n\nb', 'Friend')).toBe('a b');
+    expect(sanitizeName('a\t \t b', 'Friend')).toBe('a b');
+    expect(sanitizeName('\u0000\u0000', 'Friend')).toBe('Friend');
+  });
+
+  it('caps the length, so one player cannot push the other off the table', () => {
+    const long = sanitizeName('x'.repeat(500), 'Friend');
+    expect(long.length).toBe(MAX_NAME_LENGTH);
+    // Cut by code point, so a surrogate pair is never split in half.
+    const emoji = sanitizeName('🎴'.repeat(50), 'Friend');
+    expect([...emoji].length).toBe(MAX_NAME_LENGTH);
+    expect(emoji).not.toContain('\ufffd');
+  });
+
+  it('does not interpret markup — it is rendered as text', () => {
+    // React escapes on render; this only asserts nothing is silently dropped,
+    // so the name shows up visibly wrong rather than partially executed.
+    expect(sanitizeName('<b>hi</b>', 'Friend')).toBe('<b>hi</b>');
+  });
+
+  it('keeps non-Latin names intact', () => {
+    expect(sanitizeName('こいこい', 'Friend')).toBe('こいこい');
+    // Emoji are astral-plane pairs; the cap counts code points, not units.
+    expect(sanitizeName('🎴🎴', 'Friend')).toBe('🎴🎴');
   });
 });

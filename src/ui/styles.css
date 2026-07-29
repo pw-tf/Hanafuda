@@ -1152,6 +1152,8 @@ code {
   font-weight: 700;
 }
 
+/* Tuned for the room code: monospaced, wide-tracked, uppercase, centred —
+   six characters read back to someone over a call. */
 .input {
   width: 100%;
   padding: 0.7rem 0.8rem;
@@ -1164,6 +1166,19 @@ code {
   border-radius: var(--radius);
   color: var(--text);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* A name is prose, not a code, so it drops all of that. */
+.input--text {
+  font-family: inherit;
+  font-size: 1.05rem;
+  letter-spacing: normal;
+  text-align: left;
+  text-transform: none;
+}
+
+.input--text::placeholder {
+  letter-spacing: normal;
 }
 
 .input::placeholder {
@@ -1869,4 +1884,10 @@ code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.68rem;
   color: var(--muted);
+}
+
+/* The match result leads with the outcome, then tails the final round's
+   scoring — that round has no sheet of its own any more. */
+.sheet__head--centre {
+  text-align: center;
 }

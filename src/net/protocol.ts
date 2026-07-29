@@ -36,6 +36,45 @@ export type IntentMessage = {
   json: string;
 }
 
+/**
+ * Either side, on connect: what to call me.
+ *
+ * Sent separately from `hello` because it travels both ways — the host tells
+ * the guest the rules, but a nickname is something each player has for
+ * themselves.
+ */
+export type NameMessage = {
+  v: number;
+  name: string;
+}
+
+/** Nicknames are shown on the table, so they are kept short and single-line. */
+export const MAX_NAME_LENGTH = 14;
+
+/**
+ * Nicknames arrive from the other device, so they are untrusted input: they
+ * are rendered as text on this player's screen. Control characters are
+ * stripped, whitespace collapsed, and the result capped — an empty or
+ * all-blank name falls back to the caller's default rather than rendering a
+ * gap where a player's name should be.
+ */
+export function sanitizeName(raw: string, fallback: string): string {
+  const cleaned = [...String(raw ?? '')]
+    // Control characters become spaces rather than being dropped: deleting a
+    // newline outright would silently splice two words into one.
+    .map((ch) => {
+      const c = ch.codePointAt(0) ?? 0;
+      return c < 0x20 || c === 0x7f ? ' ' : ch;
+    })
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim();
+  // Sliced by code point, so a name of emoji is not cut through the middle of
+  // a surrogate pair.
+  const capped = [...cleaned].slice(0, MAX_NAME_LENGTH).join('').trim();
+  return capped.length > 0 ? capped : fallback;
+}
+
 /** Host -> guest, once on connect, so both sides agree on the rules. */
 export type HelloMessage = {
   v: number;
@@ -71,6 +110,7 @@ export const STRATEGY_LABEL: Record<Strategy, string> = {
 /** Trystero action names. Each is capped at 12 bytes by the library. */
 export const ACTIONS = {
   hello: 'hello',
+  name: 'name',
   state: 'state',
   intent: 'intent',
   reject: 'reject',

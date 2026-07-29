@@ -19,22 +19,114 @@ const REASON_TEXT: Record<RoundResult['reason'], string> = {
   exhausted: 'Hands exhausted',
 };
 
+/**
+ * One round's scoring, laid out line by line so the total can be checked by
+ * hand. Shared: it is the whole of the round-result sheet, and it also tails
+ * the match result, where the last round now settles without a sheet of its
+ * own.
+ */
+export function RoundBreakdown({
+  result,
+  rules,
+  names,
+}: {
+  result: RoundResult;
+  rules: RuleConfig;
+  names: readonly [string, string];
+}) {
+  const { settlement, yaku } = result;
+
+  if (result.reason === 'teyaku') {
+    return (
+      <div className="sheet__body">
+        {([0, 1] as const).map((seat) =>
+          result.teyaku[seat].length === 0 ? null : (
+            <div key={seat} className="sheet__teyaku">
+              <h3>{names[seat]}</h3>
+              {result.teyaku[seat].map((y, i) => (
+                <div key={`${y.id}-${i}`} className="sheet__line">
+                  <span>
+                    {YAKU_INFO[y.id].name} <em>{YAKU_INFO[y.id].nameJa}</em>
+                  </span>
+                  <b>{y.points}</b>
+                </div>
+              ))}
+            </div>
+          ),
+        )}
+      </div>
+    );
+  }
+
+  if (yaku.length === 0) {
+    return (
+      <p className="sheet__none">
+        Neither player called the round, so nobody scores.
+        {rules.drawRule === 'dealer-6' && ' (Dealer bonus is enabled but did not apply.)'}
+      </p>
+    );
+  }
+
+  return (
+    <div className="sheet__body">
+      {yaku.map((y) => (
+        <div key={y.id} className="sheet__yaku">
+          <div className="sheet__line">
+            <span>
+              {YAKU_INFO[y.id].name} <em>{YAKU_INFO[y.id].nameJa}</em>
+            </span>
+            <b>{y.points}</b>
+          </div>
+          <div className="sheet__cards">
+            {y.cards.map((id) => (
+              <CardFace key={id} id={id} width={30} />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {settlement && (
+        <div className="sheet__maths">
+          <div className="sheet__line sheet__line--sub">
+            <span>Yaku total</span>
+            <b>{settlement.base}</b>
+          </div>
+          {settlement.sevenPointMultiplier > 1 && (
+            <div className="sheet__line sheet__line--sub">
+              <span>{rules.sevenPointThreshold}+ points</span>
+              <b>×{settlement.sevenPointMultiplier}</b>
+            </div>
+          )}
+          {settlement.koiMultiplier > 1 && (
+            <div className="sheet__line sheet__line--sub">
+              <span>Koi-Koi</span>
+              <b>×{settlement.koiMultiplier}</b>
+            </div>
+          )}
+          <div className="sheet__line sheet__line--total">
+            <span>Round total</span>
+            <b>{settlement.total}</b>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function RoundEnd({
   result,
   rules,
   names,
   onNext,
-  matchOver,
   scores,
 }: {
   result: RoundResult;
   rules: RuleConfig;
   names: readonly [string, string];
   onNext(): void;
-  matchOver: boolean;
   scores: readonly [number, number];
 }) {
-  const { settlement, yaku, winner, awarded } = result;
+  const { winner, awarded } = result;
 
   return (
     <Sheet label="Round result" dismissible={false}>
@@ -49,73 +141,7 @@ export function RoundEnd({
         </h2>
       </header>
 
-      {result.reason === 'teyaku' ? (
-        <div className="sheet__body">
-          {([0, 1] as const).map((seat) =>
-            result.teyaku[seat].length === 0 ? null : (
-              <div key={seat} className="sheet__teyaku">
-                <h3>{names[seat]}</h3>
-                {result.teyaku[seat].map((y, i) => (
-                  <div key={`${y.id}-${i}`} className="sheet__line">
-                    <span>
-                      {YAKU_INFO[y.id].name} <em>{YAKU_INFO[y.id].nameJa}</em>
-                    </span>
-                    <b>{y.points}</b>
-                  </div>
-                ))}
-              </div>
-            ),
-          )}
-        </div>
-      ) : yaku.length === 0 ? (
-        <p className="sheet__none">
-          Neither player called the round, so nobody scores.
-          {rules.drawRule === 'dealer-6' && ' (Dealer bonus is enabled but did not apply.)'}
-        </p>
-      ) : (
-        <div className="sheet__body">
-          {yaku.map((y) => (
-            <div key={y.id} className="sheet__yaku">
-              <div className="sheet__line">
-                <span>
-                  {YAKU_INFO[y.id].name} <em>{YAKU_INFO[y.id].nameJa}</em>
-                </span>
-                <b>{y.points}</b>
-              </div>
-              <div className="sheet__cards">
-                {y.cards.map((id) => (
-                  <CardFace key={id} id={id} width={30} />
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {settlement && (
-            <div className="sheet__maths">
-              <div className="sheet__line sheet__line--sub">
-                <span>Yaku total</span>
-                <b>{settlement.base}</b>
-              </div>
-              {settlement.sevenPointMultiplier > 1 && (
-                <div className="sheet__line sheet__line--sub">
-                  <span>{rules.sevenPointThreshold}+ points</span>
-                  <b>×{settlement.sevenPointMultiplier}</b>
-                </div>
-              )}
-              {settlement.koiMultiplier > 1 && (
-                <div className="sheet__line sheet__line--sub">
-                  <span>Koi-Koi</span>
-                  <b>×{settlement.koiMultiplier}</b>
-                </div>
-              )}
-              <div className="sheet__line sheet__line--total">
-                <span>Round total</span>
-                <b>{settlement.total}</b>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      <RoundBreakdown result={result} rules={rules} names={names} />
 
       <div className="sheet__scores">
         <div>
@@ -129,7 +155,7 @@ export function RoundEnd({
       </div>
 
       <button type="button" className="btn btn--primary btn--wide" onClick={onNext}>
-        {matchOver ? 'See final result' : 'Next round'}
+        Next round
       </button>
     </Sheet>
   );

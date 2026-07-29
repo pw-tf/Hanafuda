@@ -61,7 +61,17 @@ export interface PendingChoice {
   readonly options: readonly CardId[];
 }
 
-/** What happened in the current turn, for animation and the move log. */
+/**
+ * What happened in the most recent turn, for animation and the move log.
+ *
+ * It survives the end of the turn it describes and is only cleared when the
+ * next player actually plays a card. That matters: the deck flip and the
+ * capture it makes both land on the same move that hands over the turn, so a
+ * trace reset at hand-over threw away the one thing the UI needed to animate —
+ * the flip was over before it could be drawn, and `player` had already flipped
+ * to the *next* player, sending the captured cards towards the wrong side of
+ * the table.
+ */
 export interface TurnTrace {
   readonly player: PlayerIndex;
   readonly handCard: CardId | null;
@@ -320,12 +330,14 @@ function finishTurn(state: GameState, round: RoundState): RoundState {
     return endWithoutYaku(state, round);
   }
 
+  // The trace is deliberately left alone. It describes the turn that just
+  // finished — including the deck flip resolved a moment ago — and the UI
+  // needs it to still be there to animate.
   return {
     ...round,
     phase: 'play',
     current: other(round.current),
     pending: null,
-    trace: emptyTrace(other(round.current)),
   };
 }
 
@@ -439,9 +451,11 @@ export function applyMove(state: GameState, move: Move): GameState {
           field: outcome.field,
           players,
           pending: outcome.pending,
+          // A fresh trace, not a spread: the previous turn's trace now lives
+          // until this moment, so inheriting it would leave last turn's deck
+          // flip attached to this turn's play.
           trace: {
-            ...round.trace,
-            player: round.current,
+            ...emptyTrace(round.current),
             handCard: move.card,
             handCaptured: outcome.captured,
           },
@@ -530,7 +544,6 @@ export function applyMove(state: GameState, move: Move): GameState {
           current: next,
           players,
           pending: null,
-          trace: emptyTrace(next),
         },
       };
     }

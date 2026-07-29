@@ -15,7 +15,7 @@
  * the corresponding capture summary bar.
  */
 
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { getCard, type CardId } from '../../engine/cards';
 import { matchesFor, type GameState, type PlayerIndex } from '../../engine/game';
 import { CardFace } from '../../art/CardFace';
@@ -79,10 +79,28 @@ export function Board({
   const pending = round.pending;
   const drawn = round.trace.drawnCard;
 
+  /**
+   * A flipped card that took something never touches the field, so without
+   * this it would go from the deck to a capture pile with nothing drawn in
+   * between — the whole second half of the turn happening invisibly. A flip
+   * that takes nothing needs no overlay: it lands on the field, and the field's
+   * own arrival animation already slides it up from the deck's side.
+   */
+  const deckCapture = round.trace.drawnCaptured.length > 0;
+  const flight = useDrawFlight(pending ? null : drawn, deckCapture);
+
   // Captures are made by whoever is on turn, so a card leaving the field
-  // travels towards their side of the table.
+  // travels towards their side of the table. `trace.player` is the player who
+  // just acted, which after a deck capture is no longer the player on turn.
   const captureDirection = round.trace.player === seat ? 'down' : 'up';
-  const { order, arriving, leaving } = useFieldAnimation(round.field, captureDirection);
+
+  // Cards taken by the flip wait for the flipped card to arrive, so the pair
+  // leaves together instead of the field card vanishing on its own.
+  const { order, arriving, leaving } = useFieldAnimation(
+    round.field,
+    captureDirection,
+    deckCapture ? FLIGHT_RISE_MS + FLIGHT_HOLD_MS : 0,
+  );
 
   return (
     <div className="board">
@@ -101,8 +119,10 @@ export function Board({
                 'board__slot' +
                 (isTarget ? ' board__slot--target' : '') +
                 (arriving.has(id) ? ' board__slot--enter' : '') +
-                (goes ? ` board__slot--leave board__slot--leave-${goes}` : '')
+                (goes ? ` board__slot--leave board__slot--leave-${goes.direction}` : '')
               }
+              // Held still until the flipped card has risen from the deck.
+              style={goes && goes.delay > 0 ? { animationDelay: `${goes.delay}ms` } : undefined}
               onClick={() => handleField(id)}
               // Tappable either as a capture target or, with nothing forward,
               // to ask what the card is.
@@ -117,17 +137,23 @@ export function Board({
 
         {order.length === 0 && <p className="board__fieldEmpty">The field is clear</p>}
 
-        {/* The card in flight, overlaid so it costs the field no height. */}
+        {/* Overlaid rather than given a row, so it costs the field no height. */}
         {pending && (
           <div className="board__flight board__flight--pending">
             <CardFace id={pending.card} width={44} eager />
             <span>Pick one</span>
           </div>
         )}
-        {!pending && drawn && (
-          <div className="board__flight">
-            <CardFace id={drawn} width={44} eager />
-            <span>Drawn</span>
+        {flight && (
+          <div
+            className={
+              'board__flight board__flight--draw' +
+              ` board__flight--${flight.stage}` +
+              (flight.stage === 'out' ? ` board__flight--out-${captureDirection}` : '')
+            }
+          >
+            <CardFace id={flight.card} width={52} eager />
+            <span>From the deck</span>
           </div>
         )}
       </div>
@@ -146,12 +172,67 @@ export function Board({
 /** Must match the animation durations in the stylesheet. */
 const ENTER_MS = 440;
 const LEAVE_MS = 418;
+const FLIGHT_RISE_MS = 320;
+const FLIGHT_HOLD_MS = 450;
+const FLIGHT_LEAVE_MS = 418;
+
+interface DrawFlight {
+  card: CardId;
+  /** Rising from the deck, or travelling on to the capture pile. */
+  stage: 'in' | 'out';
+}
+
+/**
+ * The flipped card's journey: up from the deck, a beat to read it, then away
+ * to the pile of whoever flipped it.
+ *
+ * Driven off the card's identity rather than a phase, because the flip and the
+ * hand-over happen on the same move — by the time this renders, the turn has
+ * already passed and there is no phase left that means "a card was just
+ * flipped". The trace outlives the turn precisely so this can work.
+ */
+function useDrawFlight(drawn: CardId | null, captured: boolean): DrawFlight | null {
+  const [flight, setFlight] = useState<DrawFlight | null>(null);
+  const shown = useRef<CardId | null>(null);
+
+  useEffect(() => {
+    if (drawn === null) {
+      // The next turn started; let the same card animate again if it comes up
+      // in a later round.
+      shown.current = null;
+      return;
+    }
+    if (!captured || drawn === shown.current) return;
+    shown.current = drawn;
+
+    setFlight({ card: drawn, stage: 'in' });
+    const only = (fn: (f: DrawFlight | null) => DrawFlight | null) =>
+      setFlight((f) => (f && f.card === drawn ? fn(f) : f));
+
+    const timers = [
+      setTimeout(() => only(() => ({ card: drawn, stage: 'out' })), FLIGHT_RISE_MS + FLIGHT_HOLD_MS),
+      setTimeout(
+        () => only(() => null),
+        FLIGHT_RISE_MS + FLIGHT_HOLD_MS + FLIGHT_LEAVE_MS,
+      ),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [drawn, captured]);
+
+  return flight;
+}
+
+interface Departure {
+  direction: 'up' | 'down';
+  /** Held before the card starts moving, in ms. */
+  delay: number;
+}
 
 interface FieldAnimation {
   /** Field cards plus any still animating out, in stable display order. */
   order: CardId[];
   arriving: ReadonlySet<CardId>;
-  leaving: ReadonlyMap<CardId, 'up' | 'down'>;
+  leaving: ReadonlyMap<CardId, Departure>;
 }
 
 /**
@@ -170,12 +251,20 @@ interface FieldAnimation {
  *
  * `useLayoutEffect` matters too: it runs before paint, so the departing card
  * is still on screen for the frame in which its animation starts.
+ *
+ * `leaveDelay` holds a departure back. A capture made by the flipped card has
+ * to wait for that card to finish rising out of the deck, otherwise the field
+ * card leaves on its own and the pair never look like one exchange.
  */
-function useFieldAnimation(field: readonly CardId[], direction: 'up' | 'down'): FieldAnimation {
+function useFieldAnimation(
+  field: readonly CardId[],
+  direction: 'up' | 'down',
+  leaveDelay = 0,
+): FieldAnimation {
   const previous = useRef<readonly CardId[]>(field);
   const [order, setOrder] = useState<CardId[]>(() => [...field]);
   const [arriving, setArriving] = useState<ReadonlySet<CardId>>(new Set());
-  const [leaving, setLeaving] = useState<ReadonlyMap<CardId, 'up' | 'down'>>(new Map());
+  const [leaving, setLeaving] = useState<ReadonlyMap<CardId, Departure>>(new Map());
 
   useLayoutEffect(() => {
     const before = previous.current;
@@ -215,7 +304,7 @@ function useFieldAnimation(field: readonly CardId[], direction: 'up' | 'down'): 
       // cancel the first.
       setLeaving((current) => {
         const next = new Map(current);
-        for (const id of gone) next.set(id, direction);
+        for (const id of gone) next.set(id, { direction, delay: leaveDelay });
         return next;
       });
       timers.push(
@@ -226,12 +315,12 @@ function useFieldAnimation(field: readonly CardId[], direction: 'up' | 'down'): 
             return next;
           });
           setOrder((current) => current.filter((id) => !goneSet.has(id)));
-        }, LEAVE_MS),
+        }, leaveDelay + LEAVE_MS),
       );
     }
 
     return () => timers.forEach(clearTimeout);
-  }, [field, direction]);
+  }, [field, direction, leaveDelay]);
 
   return { order, arriving, leaving };
 }

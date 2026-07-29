@@ -227,6 +227,68 @@ describe('the deck flip', () => {
   });
 });
 
+describe('the turn trace', () => {
+  /**
+   * The trace has to outlive the turn it describes. The flip and the capture
+   * it makes both happen on the move that also hands over the turn, so if the
+   * trace reset there, the UI would never once observe the flip and could not
+   * animate it.
+   */
+  it('still describes the finished turn after the turn passes', () => {
+    const [jan0, jan1] = monthIds(1) as [CardId, CardId];
+    const handCard = monthIds(5)[0]!;
+    const afterPlay = applyMove(
+      makeState({ hand0: [handCard], hand1: [monthIds(9)[0]!], field: [jan1], deck: [jan0] }),
+      { type: 'play', card: handCard },
+    );
+    const s = applyMove(afterPlay, { type: 'draw' });
+
+    expect(s.roundState.current).toBe(1);
+    // ...but the trace still belongs to player 0, who just played.
+    expect(s.roundState.trace.player).toBe(0);
+    expect(s.roundState.trace.handCard).toBe(handCard);
+    expect(s.roundState.trace.drawnCard).toBe(jan0);
+    expect([...s.roundState.trace.drawnCaptured].sort()).toEqual([jan0, jan1].sort());
+  });
+
+  it('survives a koi-koi call, which does not end the turn it describes', () => {
+    // Player 0 is one bright away from Sanko, so the flip triggers the prompt.
+    const nearSanko = makeState({
+      hand0: [CARD_IDS.MOON],
+      hand1: [monthIds(9)[0]!, monthIds(9)[1]!],
+      field: [monthIds(8)[2]!],
+      deck: [monthIds(6)[2]!, monthIds(6)[3]!],
+      captured0: [CARD_IDS.CRANE, CARD_IDS.CURTAIN],
+    });
+    const s = applyMove(nearSanko, { type: 'play', card: CARD_IDS.MOON });
+    const drawn = applyMove(s, { type: 'draw' });
+    expect(drawn.roundState.phase).toBe('koikoi');
+
+    const after = applyMove(drawn, { type: 'koikoi' });
+    expect(after.roundState.current).toBe(1);
+    expect(after.roundState.trace.player).toBe(0);
+    expect(after.roundState.trace.handCard).toBe(CARD_IDS.MOON);
+  });
+
+  it('is replaced wholesale when the next player plays', () => {
+    const [jan0, jan1] = monthIds(1) as [CardId, CardId];
+    const handCard = monthIds(5)[0]!;
+    const p1Card = monthIds(9)[0]!;
+    const afterPlay = applyMove(
+      makeState({ hand0: [handCard], hand1: [p1Card], field: [jan1], deck: [jan0, monthIds(11)[0]!] }),
+      { type: 'play', card: handCard },
+    );
+    const passed = applyMove(afterPlay, { type: 'draw' });
+    const next = applyMove(passed, { type: 'play', card: p1Card });
+
+    // No trace of player 0's flip may leak into player 1's turn.
+    expect(next.roundState.trace.player).toBe(1);
+    expect(next.roundState.trace.handCard).toBe(p1Card);
+    expect(next.roundState.trace.drawnCard).toBeNull();
+    expect(next.roundState.trace.drawnCaptured).toEqual([]);
+  });
+});
+
 describe('koi-koi and shobu', () => {
   /** Position player 0 one card away from Sanko (three brights, no Rain Man). */
   function nearSanko() {

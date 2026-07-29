@@ -19,6 +19,14 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { getCard, type CardId } from '../../engine/cards';
 import { matchesFor, type GameState, type PlayerIndex } from '../../engine/game';
 import { CardFace } from '../../art/CardFace';
+import {
+  fieldKey,
+  initialField,
+  nextFieldDeadline,
+  reconcileField,
+  sweepField,
+  type FieldAnimation,
+} from '../fieldAnimation';
 import { Hand } from './Hand';
 
 export interface BoardProps {
@@ -169,9 +177,6 @@ export function Board({
   );
 }
 
-/** Must match the animation durations in the stylesheet. */
-const ENTER_MS = 440;
-const LEAVE_MS = 418;
 const FLIGHT_RISE_MS = 320;
 const FLIGHT_HOLD_MS = 450;
 const FLIGHT_LEAVE_MS = 418;
@@ -197,9 +202,13 @@ function useDrawFlight(drawn: CardId | null, captured: boolean): DrawFlight | nu
 
   useEffect(() => {
     if (drawn === null) {
-      // The next turn started; let the same card animate again if it comes up
-      // in a later round.
+      // The next turn started. Clear the overlay rather than leaving it to its
+      // timers: this effect's cleanup cancels them, so a trace that reset
+      // mid-flight would strand the card in the middle of the table for the
+      // rest of the round. Also lets the same card animate again in a later
+      // round.
       shown.current = null;
+      setFlight(null);
       return;
     }
     if (!captured || drawn === shown.current) return;
@@ -222,105 +231,44 @@ function useDrawFlight(drawn: CardId | null, captured: boolean): DrawFlight | nu
   return flight;
 }
 
-interface Departure {
-  direction: 'up' | 'down';
-  /** Held before the card starts moving, in ms. */
-  delay: number;
-}
-
-interface FieldAnimation {
-  /** Field cards plus any still animating out, in stable display order. */
-  order: CardId[];
-  arriving: ReadonlySet<CardId>;
-  leaving: ReadonlyMap<CardId, Departure>;
-}
-
 /**
- * Tracks cards entering and leaving the field.
+ * Drives the field's enter/leave bookkeeping.
  *
- * The engine hands over a flat list with no history, so both are derived by
- * diffing against the previous render. Departing cards are held in the layout
- * for the length of their animation and rendered in their old position —
- * without that they vanish instantly and the field reflows underneath, which
- * is exactly the jump that made captures hard to follow.
+ * All of the state lives in `fieldAnimation.ts`, which expresses "this card
+ * may leave the layout at time T" as a deadline rather than a timer. The
+ * component only has to keep one timer pointed at the next deadline, and if
+ * that timer is ever cancelled — by a re-render, a prop change, anything — the
+ * deadline is still in the state and the next sweep honours it.
  *
- * The display order is state rather than something recomputed during render.
- * Deriving it inline drops a captured card on the very render the engine
- * removes it — before the effect has had any chance to mark it as leaving —
- * so the animation never gets a frame to run in.
- *
- * `useLayoutEffect` matters too: it runs before paint, so the departing card
- * is still on screen for the frame in which its animation starts.
- *
- * `leaveDelay` holds a departure back. A capture made by the flipped card has
- * to wait for that card to finish rising out of the deck, otherwise the field
- * card leaves on its own and the pair never look like one exchange.
+ * `useLayoutEffect` matters: it runs before paint, so a departing card is
+ * still on screen for the frame in which its animation starts.
  */
 function useFieldAnimation(
   field: readonly CardId[],
   direction: 'up' | 'down',
   leaveDelay = 0,
 ): FieldAnimation {
-  const previous = useRef<readonly CardId[]>(field);
-  const [order, setOrder] = useState<CardId[]>(() => [...field]);
-  const [arriving, setArriving] = useState<ReadonlySet<CardId>>(new Set());
-  const [leaving, setLeaving] = useState<ReadonlyMap<CardId, Departure>>(new Map());
+  const [animation, setAnimation] = useState(() => initialField(field));
+  const key = fieldKey(field);
 
   useLayoutEffect(() => {
-    const before = previous.current;
-    const beforeSet = new Set(before);
-    const nowSet = new Set(field);
+    setAnimation((previous) => reconcileField(previous, field, direction, leaveDelay, Date.now()));
+    // Keyed on the field's *contents*, not the array. A guest rebuilds its
+    // state from JSON on every snapshot, so the array is new each time even
+    // when the same cards are on the table; diffing that against itself is
+    // pure churn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, direction, leaveDelay]);
 
-    const fresh = field.filter((id) => !beforeSet.has(id));
-    const gone = before.filter((id) => !nowSet.has(id));
-    previous.current = field;
+  const deadline = nextFieldDeadline(animation);
+  useEffect(() => {
+    if (deadline === null) return;
+    const timer = setTimeout(
+      () => setAnimation((previous) => sweepField(previous, Date.now())),
+      Math.max(0, deadline - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [deadline]);
 
-    if (fresh.length === 0 && gone.length === 0) {
-      // Order can still differ (e.g. a fresh deal), so resync.
-      setOrder((current) =>
-        current.length === field.length && current.every((id, i) => id === field[i])
-          ? current
-          : [...field],
-      );
-      return;
-    }
-
-    const goneSet = new Set(gone);
-    setOrder((current) => {
-      const kept = current.filter((id) => nowSet.has(id) || goneSet.has(id));
-      const missing = field.filter((id) => !kept.includes(id));
-      return [...kept, ...missing];
-    });
-
-    const timers: ReturnType<typeof setTimeout>[] = [];
-
-    if (fresh.length > 0) {
-      setArriving(new Set(fresh));
-      timers.push(setTimeout(() => setArriving(new Set()), ENTER_MS));
-    }
-
-    if (gone.length > 0) {
-      // Merge, so a second capture while one is still animating does not
-      // cancel the first.
-      setLeaving((current) => {
-        const next = new Map(current);
-        for (const id of gone) next.set(id, { direction, delay: leaveDelay });
-        return next;
-      });
-      timers.push(
-        setTimeout(() => {
-          setLeaving((current) => {
-            const next = new Map(current);
-            for (const id of gone) next.delete(id);
-            return next;
-          });
-          setOrder((current) => current.filter((id) => !goneSet.has(id)));
-        }, leaveDelay + LEAVE_MS),
-      );
-    }
-
-    return () => timers.forEach(clearTimeout);
-  }, [field, direction, leaveDelay]);
-
-  return { order, arriving, leaving };
+  return animation;
 }

@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { GameState } from '../engine/game';
+import { warmCardCache } from '../art/CardFace';
 import { clearGame, describeSave, loadGame } from './persistence';
 import type { Difficulty } from '../ai';
 import { DEFAULT_RULES, type RuleConfig } from '../engine/rules';
@@ -40,6 +41,13 @@ function readNickname(): string {
 
 export function App() {
   const [route, navigate] = useHashRoute();
+
+  // Pull the deck into cache while the player is still on the menu, so a deal
+  // is not the first time a dozen faces are requested at once.
+  useEffect(() => {
+    warmCardCache();
+  }, []);
+
   const [rules, setRules] = useState<RuleConfig>(DEFAULT_RULES);
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [setup, setSetup] = useState<PlaySetup | null>(null);

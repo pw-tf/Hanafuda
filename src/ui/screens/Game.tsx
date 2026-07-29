@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CardId } from '../../engine/cards';
 import { MONTH_NAMES } from '../../engine/cards';
 import { currentYaku, matchesFor, type PlayerIndex } from '../../engine/game';
@@ -8,11 +8,11 @@ import { CardInfo } from '../components/CardInfo';
 import { Connecting } from '../components/Connecting';
 import { ScoreSheet } from '../components/ScoreSheet';
 import { CapturePile, PileSummary } from '../components/CapturePile';
+import { KoiKoiCall } from '../components/KoiKoiCall';
 import { KoiKoiPrompt, RoundEnd } from '../components/RoundEnd';
 import { Sheet } from '../components/Sheet';
 import { YakuPanel } from '../components/YakuPanel';
 import { useGameSession, type SessionConfig } from '../useGameSession';
-import { STRATEGY_LABEL } from '../../net/protocol';
 
 export interface GameScreenProps extends SessionConfig {
   rules: RuleConfig;
@@ -29,6 +29,11 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
   const [inspecting, setInspecting] = useState<CardId | null>(null);
   const [showScores, setShowScores] = useState(false);
 
+  /** The other player's Koi-Koi, waiting to be announced. */
+  const [koiCall, setKoiCall] = useState<{ id: number; by: PlayerIndex; calls: number } | null>(
+    null,
+  );
+
   const state = session.state;
 
   // Clear the selection whenever the position changes under us.
@@ -36,6 +41,36 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
     setSelected(null);
     setInspecting(null);
   }, [state?.roundState.phase, state?.roundState.current]);
+
+  /**
+   * Watch for a Koi-Koi by anyone who is not us.
+   *
+   * The engine records the call as a counter rather than an event, so this
+   * diffs it. Both seats are checked rather than "the opponent", because in
+   * pass-and-play the seat this device shows follows whoever is to move — by
+   * the time the call lands, the board has already swung round to the other
+   * player, who is exactly the person who needs telling.
+   */
+  const calls0 = state?.roundState.players[0].koiKoiCalls ?? 0;
+  const calls1 = state?.roundState.players[1].koiKoiCalls ?? 0;
+  const seenCalls = useRef<[number, number]>([0, 0]);
+  const nextCallId = useRef(0);
+  const viewerSeat = config.mode === 'local' ? state?.roundState.current : session.mySeat;
+
+  useEffect(() => {
+    const now: [number, number] = [calls0, calls1];
+    const before = seenCalls.current;
+    seenCalls.current = now;
+    for (const p of [0, 1] as const) {
+      // Only an increase counts: a new round resets both counters to zero.
+      if (now[p] > before[p] && p !== viewerSeat) {
+        nextCallId.current += 1;
+        setKoiCall({ id: nextCallId.current, by: p, calls: now[p] });
+      }
+    }
+  }, [calls0, calls1, viewerSeat]);
+
+  const clearKoiCall = useCallback(() => setKoiCall(null), []);
 
   const isNetwork = config.mode === 'host' || config.mode === 'guest';
   const strategy = config.strategy ?? 'nostr';
@@ -130,13 +165,14 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
         </div>
       </header>
 
-      {isNetwork && (
+      {/* Only when something is wrong. A permanent "Connected · Nostr relays"
+          strip cost the table a row to say nothing — you can see the game is
+          working, because it is working. */}
+      {isNetwork && session.connection !== 'connected' && (
         <div className={`netbar netbar--${session.connection}`}>
-          {session.connection === 'connected'
-            ? `Connected · ${STRATEGY_LABEL[strategy]}`
-            : session.connection === 'peer-left'
-              ? 'The other player disconnected'
-              : (session.connectionDetail ?? 'Connecting…')}
+          {session.connection === 'peer-left'
+            ? 'The other player disconnected'
+            : (session.connectionDetail ?? 'Connecting…')}
         </div>
       )}
 
@@ -201,6 +237,15 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
 
       {inspecting && !sheetOpen && (
         <CardInfo id={inspecting} rules={state.rules} onClose={() => setInspecting(null)} />
+      )}
+
+      {koiCall && (
+        <KoiKoiCall
+          callId={koiCall.id}
+          name={names[koiCall.by]}
+          calls={koiCall.calls}
+          onDone={clearKoiCall}
+        />
       )}
 
       {showKoiKoi && (

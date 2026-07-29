@@ -552,11 +552,13 @@ code {
 }
 
 /* The card in flight sits over the field rather than in a row of its own. */
+/* Overlays on the field: the card awaiting a choice, and the flipped card on
+   its way from the deck to a capture pile. Both are centred with a translate,
+   so every keyframe below has to carry that offset — dropping it (as the old
+   `transform: none` did) makes the card jump sideways mid-animation. */
 .board__flight {
   position: absolute;
-  top: 0.4rem;
   left: 50%;
-  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -567,7 +569,6 @@ code {
   border: 1px solid var(--line);
   line-height: 0;
   pointer-events: none;
-  animation: flip-in 0.35s ease;
 }
 
 .board__flight span {
@@ -577,18 +578,81 @@ code {
 }
 
 .board__flight--pending {
+  top: 0.4rem;
+  transform: translateX(-50%);
   border-color: var(--gold);
   box-shadow: 0 0 0 3px rgba(232, 180, 35, 0.25);
+  animation: flip-in 0.35s ease;
 }
 
 @keyframes flip-in {
   from {
-    transform: rotateY(90deg) scale(0.8);
+    transform: translateX(-50%) rotateY(90deg) scale(0.8);
     opacity: 0;
   }
   to {
-    transform: none;
+    transform: translateX(-50%) rotateY(0) scale(1);
     opacity: 1;
+  }
+}
+
+/* The flipped card. Sits in the middle of the table for its moment, because a
+   capture made by the flip never lands on the field and this is the only time
+   it is ever shown. */
+.board__flight--draw {
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0.4rem 0.6rem;
+  background: rgba(10, 10, 11, 0.94);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.6);
+  z-index: 2;
+}
+
+/* Up out of the deck, which sits below the table on the capture bar. */
+.board__flight--in {
+  animation: draw-rise 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes draw-rise {
+  from {
+    transform: translate(-50%, calc(-50% + 6rem)) scale(0.7);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+/* On to the capture pile, matching the field cards it took. */
+.board__flight--out-down {
+  animation: draw-to-mine 0.418s ease-in both;
+}
+
+.board__flight--out-up {
+  animation: draw-to-theirs 0.418s ease-in both;
+}
+
+@keyframes draw-to-mine {
+  from {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translate(-50%, calc(-50% + 9rem)) scale(0.65);
+    opacity: 0;
+  }
+}
+
+@keyframes draw-to-theirs {
+  from {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translate(-50%, calc(-50% - 9rem)) scale(0.65);
+    opacity: 0;
   }
 }
 
@@ -1475,6 +1539,111 @@ code {
   font-variant-numeric: tabular-nums;
   font-size: 0.75rem;
   color: var(--muted);
+}
+
+/* -------------------------------------------------------- koi-koi called */
+
+/* Announcement, not dialogue. It covers the table for a moment and takes no
+   input — pointer-events stays off the whole way down, so a tap meant for the
+   board during the ~1.7s it is up still gets there. */
+.koicall {
+  position: fixed;
+  inset: 0;
+  z-index: 28;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  animation: koicall-veil 1.7s ease both;
+}
+
+.koicall__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 1rem 2.2rem;
+  background: linear-gradient(var(--lacquer-hi), var(--lacquer-lo));
+  border: 1px solid var(--lacquer-hi);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
+  color: var(--on-lacquer);
+  text-align: center;
+  animation: koicall-card 1.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.koicall__ja {
+  font-size: 1rem;
+  letter-spacing: 0.4em;
+  text-indent: 0.4em;
+  color: var(--gold);
+}
+
+.koicall__word {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.koicall__who {
+  font-size: 0.78rem;
+  opacity: 0.85;
+}
+
+/* A wash over the table, so the banner is not competing with the card art. */
+@keyframes koicall-veil {
+  0% {
+    background: rgba(0, 0, 0, 0);
+  }
+  18%,
+  70% {
+    background: rgba(0, 0, 0, 0.42);
+  }
+  100% {
+    background: rgba(0, 0, 0, 0);
+  }
+}
+
+/* Slams in, holds, then lifts away. */
+@keyframes koicall-card {
+  0% {
+    opacity: 0;
+    transform: scale(0.7) rotate(-4deg);
+  }
+  16% {
+    opacity: 1;
+    transform: scale(1.06) rotate(-1.5deg);
+  }
+  26% {
+    transform: scale(1) rotate(-1.5deg);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1) rotate(-1.5deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.04) translateY(-1.2rem) rotate(-1.5deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .koicall,
+  .koicall__inner {
+    animation-duration: 1.7s;
+    animation-timing-function: linear;
+  }
+  .koicall__inner {
+    animation-name: koicall-fade;
+  }
+  @keyframes koicall-fade {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    10%,
+    80% {
+      opacity: 1;
+    }
+  }
 }
 
 /* ------------------------------------------------------------- card info */

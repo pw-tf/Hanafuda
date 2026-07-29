@@ -62,10 +62,24 @@ export interface Session {
   restart(): void;
 }
 
-/** How long the flipped deck card is shown before the turn resolves. */
-const DRAW_REVEAL_MS = 850;
-/** Pause before the AI acts, so its move is readable rather than instant. */
-const AI_THINK_MS = 600;
+/**
+ * Beat between the hand card resolving and the deck being flipped.
+ *
+ * It used to be 850ms of nothing — the flip had not happened yet, so there was
+ * nothing on screen to look at, and then the flip and its capture resolved in
+ * a single frame. The waiting now happens *after* the flip, where there is
+ * something to see, so this is only long enough to separate the two halves of
+ * the turn.
+ */
+const DRAW_REVEAL_MS = 500;
+
+/**
+ * Pause before the AI acts. This is also the window the flipped card's
+ * animation plays in — the player's flip resolves and hands straight over to
+ * the AI — so it must outlast that animation or the AI moves over the top of
+ * it. See FLIGHT_* in Board.tsx.
+ */
+const AI_THINK_MS = 1250;
 
 export function useGameSession(config: SessionConfig): Session {
   const { mode, rules, difficulty, roomCode, strategy = 'nostr', resume } = config;

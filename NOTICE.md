@@ -34,3 +34,20 @@ If you fork, redistribute or deploy this project:
 `CardBack` in `src/art/CardFace.tsx` is this project's own work and is covered
 by the repository's own licence, not CC BY-SA. It is not part of the Commons
 set, which contains faces only.
+
+## Interface font — Shippori Mincho
+
+The webfonts in `public/fonts/` are **Shippori Mincho** (しっぽり明朝).
+
+- **Author:** The Shippori Mincho Project Authors
+- **Licence:** [SIL Open Font License 1.1](https://scripts.sil.org/OFL) — the
+  full text ships alongside the fonts at `public/fonts/LICENSE`
+- **Source:** https://github.com/fontdasu/ShipporiMincho (obtained via the
+  `@fontsource/shippori-mincho` npm package)
+
+The files here are **subsets**, not the originals: `scripts/subset-fonts.py`
+cuts each weight down to the Latin characters and the 65 Japanese glyphs this
+interface actually displays, taking three weights from roughly 4 MB to 139 KB.
+The OFL permits this. No Reserved Font Name is declared for this family, so the
+subsets keep the original name; the copyright notice and licence are retained
+as the OFL requires.

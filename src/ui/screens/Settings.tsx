@@ -70,7 +70,7 @@ export function Settings({
               onClick={() => usePreset(preset)}
               aria-pressed={rules.id === preset.id}
             >
-              {preset.label}
+              {preset.shortLabel}
             </button>
           ))}
         </div>

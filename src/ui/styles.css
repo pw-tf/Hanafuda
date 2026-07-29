@@ -13,20 +13,91 @@
   --surface: #242427;
   --ink: #0e0e0f;
   --cream: #f4f3ef;
-  --gold: #e8b423;
   --red: #d93b30;
   --line: rgba(255, 255, 255, 0.12);
   --panel: rgba(255, 255, 255, 0.05);
   --text: #ececed;
   --muted: rgba(236, 236, 237, 0.58);
 
+  /* Lacquer red (漆) for anything you press. It picks up the red in the card
+     art and sits warm against the charcoal, where the old gold-on-black read
+     as a warning label. */
+  --lacquer: #8f2419;
+  --lacquer-lo: #6d180f;
+  --lacquer-hi: #b0402f;
+  --on-lacquer: #f6ece2;
+
+  /* Gold now means one thing only: this card is scoring, or can be taken.
+     It used to do that *and* colour every primary button, which put the
+     game's most important signal on the least important furniture. */
+  --gold: #e8b423;
+
   --pad: 0.75rem;
-  --radius: 0.75rem;
+  /* Square. No radius anywhere in the chrome — buttons, panels, inputs and
+     sheets are all crisp rectangles. Kept as a token so the whole UI can be
+     softened again from one line. The exceptions are deliberate and set
+     locally: the card images keep their own small radius because real cards
+     have rounded corners, and genuine pills (the settings toggles, the count
+     badge on a forward card) stay round because that is the control. */
+  --radius: 0;
 
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
 
   color-scheme: dark;
+}
+
+/* Shippori Mincho — a traditional Japanese mincho, subset to exactly the
+   characters this game shows (see scripts/subset-fonts.py). Latin and Japanese
+   are separate files behind unicode-range, so the ~30 KB Japanese cut is only
+   fetched once a kana or kanji is actually on screen. */
+@font-face {
+  font-family: 'Shippori Mincho';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/shippori-mincho-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+2010-205E, U+2122, U+2190-2193, U+2212;
+}
+@font-face {
+  font-family: 'Shippori Mincho';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/shippori-mincho-400-japanese.woff2') format('woff2');
+  unicode-range: U+3000-30FF, U+4E00-9FFF, U+FF00-FFEF;
+}
+@font-face {
+  font-family: 'Shippori Mincho';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/shippori-mincho-600-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+2010-205E, U+2122, U+2190-2193, U+2212;
+}
+@font-face {
+  font-family: 'Shippori Mincho';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/shippori-mincho-600-japanese.woff2') format('woff2');
+  unicode-range: U+3000-30FF, U+4E00-9FFF, U+FF00-FFEF;
+}
+@font-face {
+  font-family: 'Shippori Mincho';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/shippori-mincho-700-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+2010-205E, U+2122, U+2190-2193, U+2212;
+}
+@font-face {
+  font-family: 'Shippori Mincho';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/shippori-mincho-700-japanese.woff2') format('woff2');
+  unicode-range: U+3000-30FF, U+4E00-9FFF, U+FF00-FFEF;
 }
 
 * {
@@ -44,10 +115,13 @@ body {
 body {
   background: var(--felt);
   color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
-    sans-serif;
+  /* The fallbacks are the platform minchos, so a device that has not fetched
+     the webfont yet still gets a serif rather than jumping from mincho to
+     Helvetica. */
+  font-family: 'Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', YuMincho,
+    'Noto Serif JP', 'Songti SC', serif;
   font-size: 16px;
-  line-height: 1.45;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
 }
@@ -144,7 +218,7 @@ code {
   width: 2.25rem;
   height: 2.25rem;
   border: 1px solid var(--line);
-  border-radius: 50%;
+  border-radius: var(--radius);
   background: var(--panel);
   font-size: 1.4rem;
   line-height: 1;
@@ -266,7 +340,7 @@ code {
   font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
   padding: 0.05rem 0.35rem;
-  border-radius: 999px;
+  border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid var(--line);
 }
@@ -285,7 +359,7 @@ code {
 .summary__pts {
   min-width: 1.4rem;
   text-align: right;
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--muted);
 }
@@ -395,7 +469,7 @@ code {
 .board__slot {
   padding: 0;
   border: 3px solid transparent;
-  border-radius: 0.4rem;
+  border-radius: var(--radius);
   background: none;
   line-height: 0;
   transition: transform 0.12s ease;
@@ -531,6 +605,12 @@ code {
   touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
+  /* The per-card z-indexes only order cards *within* the fan — the forward
+     card sits above its neighbours. Without a stacking context here those
+     numbers compete in the root instead, and the forward card (z 60) paints
+     straight over any sheet. Isolating keeps the fan self-contained and lets
+     the whole hand sit under the overlays as one layer. */
+  isolation: isolate;
 }
 
 .hand--idle {
@@ -591,7 +671,7 @@ code {
   background: var(--gold);
   color: #2a1e00;
   font-size: 0.7rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.15rem;
   text-align: center;
 }
@@ -615,10 +695,13 @@ code {
 
 /* ---------------------------------------------------------------- sheets */
 
+/* Overlay order, high to low: connecting (40) blocks everything, sheets (30)
+   sit over the card-info panel (25), and the board — hand fan included —
+   stays below all of them. */
 .sheet {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 30;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -641,7 +724,7 @@ code {
   overflow-y: auto;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 1rem;
+  border-radius: var(--radius);
   padding: 1rem;
   display: flex;
   flex-direction: column;
@@ -713,7 +796,7 @@ code {
   border-top: 1px solid var(--line);
   margin-top: 0.3rem;
   padding-top: 0.4rem;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--gold);
   font-size: 1rem;
 }
@@ -788,7 +871,7 @@ code {
 }
 
 .yaku__total {
-  font-weight: 800;
+  font-weight: 700;
   color: var(--gold);
 }
 
@@ -867,24 +950,44 @@ code {
   transform: rotate(8deg) translateY(4px);
 }
 
+/* The mincho has enough character to carry the title on its own, so it gets
+   room: a larger size, open tracking, and the kana above it rather than
+   crowded underneath. */
 .hero h1 {
-  font-size: 2rem;
-  letter-spacing: 0.01em;
+  font-size: 2.6rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  /* Kana first, wordmark second — the em is ordered above by flex. */
+  display: flex;
+  flex-direction: column-reverse;
 }
 
 .hero h1 em {
-  display: block;
   font-style: normal;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
+  font-weight: 400;
   color: var(--gold);
-  letter-spacing: 0.25em;
-  margin-top: 0.2rem;
+  letter-spacing: 0.42em;
+  /* The tracking is applied to the right of each glyph, which throws a
+     centred line off by one space; pull it back by half. */
+  text-indent: 0.42em;
+  margin-bottom: 0.35rem;
 }
 
 .hero__sub {
-  margin: 0.4rem 0 0;
+  margin: 0.55rem 0 0;
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+/* A hairline under the wordmark, fading out at both ends. */
+.hero__sub::after {
+  content: '';
+  display: block;
+  width: 3.5rem;
+  height: 1px;
+  margin: 0.9rem auto 0;
+  background: linear-gradient(90deg, transparent, var(--line) 35%, var(--line) 65%, transparent);
 }
 
 .menu {
@@ -942,9 +1045,9 @@ code {
 }
 
 .btn--primary {
-  background: linear-gradient(#e6b83a, #cf9a16);
-  border-color: #f0cf72;
-  color: #2a1e00;
+  background: linear-gradient(var(--lacquer-hi), var(--lacquer-lo));
+  border-color: var(--lacquer-hi);
+  color: var(--on-lacquer);
 }
 
 .btn--ghost {
@@ -980,8 +1083,8 @@ code {
 }
 
 .segmented__btn.is-on {
-  background: var(--gold);
-  color: #2a1e00;
+  background: var(--lacquer);
+  color: var(--on-lacquer);
   font-weight: 700;
 }
 
@@ -1044,7 +1147,7 @@ code {
   place-items: center;
   background: rgba(0, 0, 0, 0.32);
   border: 1px solid rgba(232, 180, 35, 0.45);
-  border-radius: 0.5rem;
+  border-radius: var(--radius);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 1.5rem;
   font-weight: 700;
@@ -1109,7 +1212,8 @@ code {
 }
 
 .opt__row input:checked + .opt__switch {
-  background: var(--gold);
+  background: var(--lacquer);
+  border-color: var(--lacquer-hi);
 }
 
 .opt__row input:checked + .opt__switch::after {
@@ -1181,10 +1285,10 @@ code {
   width: 1.6rem;
   height: 1.6rem;
   border-radius: 50%;
-  background: var(--gold);
-  color: #2a1e00;
+  background: var(--lacquer);
+  color: var(--on-lacquer);
   font-size: 0.8rem;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .gallery__ja {
@@ -1288,7 +1392,7 @@ code {
 
 .resume__detail {
   font-size: 0.7rem;
-  font-weight: 500;
+  font-weight: 600;
   opacity: 0.75;
 }
 
@@ -1325,7 +1429,7 @@ code {
 .connecting {
   position: fixed;
   inset: 0;
-  z-index: 30;
+  z-index: 40;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1360,7 +1464,7 @@ code {
   place-items: center;
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(232, 180, 35, 0.45);
-  border-radius: 0.5rem;
+  border-radius: var(--radius);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 1.3rem;
   font-weight: 700;
@@ -1458,7 +1562,7 @@ code {
 .cardinfo__yaku span {
   font-size: 0.64rem;
   padding: 0.05rem 0.35rem;
-  border-radius: 999px;
+  border-radius: var(--radius);
   background: rgba(232, 180, 35, 0.14);
   border: 1px solid rgba(232, 180, 35, 0.38);
   color: var(--gold);
@@ -1470,7 +1574,7 @@ code {
   width: 1.5rem;
   height: 1.5rem;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.08);
   color: var(--muted);
   font-size: 1rem;
@@ -1586,7 +1690,7 @@ code {
   flex: 0 0 auto;
   text-align: right;
   font-variant-numeric: tabular-nums;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--gold);
   font-size: 0.85rem;
 }

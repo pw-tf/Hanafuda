@@ -89,6 +89,25 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
   const showKoiKoi = round.phase === 'koikoi' && round.current === seat && session.canAct;
   const theirTurn = round.phase !== 'round-end' && round.current !== seat;
 
+  const showRoundEnd = Boolean(result) && round.phase === 'round-end' && !state.matchOver;
+  /**
+   * Any sheet on screen suppresses the card-info panel. The panel is fixed at
+   * the top of the viewport, so left up it would hang over a sheet and explain
+   * a card nobody is looking at any more. Opening a sheet by hand clears the
+   * inspected card outright; gating the render as well covers the sheets that
+   * appear on their own, like the koi-koi prompt.
+   */
+  const sheetOpen = showKoiKoi || showRoundEnd || state.matchOver || showScores || openPile !== null;
+
+  const openScores = () => {
+    setInspecting(null);
+    setShowScores(true);
+  };
+  const openPileFor = (who: PlayerIndex) => {
+    setInspecting(null);
+    setOpenPile(who);
+  };
+
   return (
     <div className="screen screen--game">
       <header className="topbar">
@@ -128,7 +147,7 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
         koiKoiCalls={round.players[opponent].koiKoiCalls}
         active={theirTurn}
         stack={{ count: round.players[opponent].hand.length, label: 'Cards in hand' }}
-        onOpen={() => setOpenPile(opponent)}
+        onOpen={() => openPileFor(opponent)}
       />
 
       <Board
@@ -161,7 +180,7 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
         koiKoiCalls={round.players[seat].koiKoiCalls}
         active={!theirTurn && round.phase !== 'round-end'}
         stack={{ count: round.deck.length, label: 'Cards left in the deck' }}
-        onOpen={() => setOpenPile(seat)}
+        onOpen={() => openPileFor(seat)}
       />
 
       <footer className="statusbar">
@@ -180,7 +199,7 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
                 : 'Slide across your hand, then tap a card'}
       </footer>
 
-      {inspecting && (
+      {inspecting && !sheetOpen && (
         <CardInfo id={inspecting} rules={state.rules} onClose={() => setInspecting(null)} />
       )}
 
@@ -192,7 +211,7 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
         />
       )}
 
-      {result && round.phase === 'round-end' && !state.matchOver && (
+      {result && showRoundEnd && (
         <RoundEnd
           result={result}
           rules={state.rules}
@@ -272,7 +291,7 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
             className="btn btn--wide"
             onClick={() => {
               setOpenPile(null);
-              setShowScores(true);
+              openScores();
             }}
           >
             Score guide

@@ -71,6 +71,8 @@ export interface YakuPoints {
 export interface RuleConfig {
   readonly id: string;
   readonly label: string;
+  /** Short form, for controls too narrow for the full label. */
+  readonly shortLabel: string;
   readonly points: YakuPoints;
 
   /** Minimum cards needed for the counting yaku. */
@@ -127,6 +129,7 @@ const SHARED_RULES = {
 export const STANDARD_RULES: RuleConfig = {
   id: 'standard',
   label: 'Standard (Wikipedia / BGA)',
+  shortLabel: 'Standard',
   points: {
     goko: 10,
     shiko: 8,
@@ -141,6 +144,7 @@ export const STANDARD_RULES: RuleConfig = {
 export const GAMEDESIGN_RULES: RuleConfig = {
   id: 'gamedesign',
   label: 'gamedesign.jp',
+  shortLabel: 'gamedesign.jp',
   points: {
     goko: 15,
     shiko: 10,

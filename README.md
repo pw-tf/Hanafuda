@@ -16,12 +16,24 @@ app icon; the manifest is already set up for it.
 ```sh
 npm install
 npm run dev      # http://localhost:5173
-npm test         # 123 tests
+npm test         # 145 tests
 npm run build    # typecheck + production build
 ```
 
 Open `#/gallery` in the running app to see all 48 card faces with their names
 and categories.
+
+The interface font is Shippori Mincho, subset to the exact characters the UI
+shows and committed under `public/fonts/`, so a normal build needs nothing
+extra. Only if you **add or change Japanese text** does it need rebuilding:
+
+```sh
+pip install fonttools brotli
+python3 scripts/subset-fonts.py
+```
+
+The script prints the glyphs it found and fails rather than shipping a font
+that would render tofu.
 </details>
 
 ## Deployment

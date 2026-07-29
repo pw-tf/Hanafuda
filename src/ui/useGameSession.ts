@@ -28,6 +28,7 @@ import {
   decodeMove,
   decodeRules,
   decodeState,
+  sanitizeName,
   seedFromRoomCode,
   type RejectReason,
   type Strategy,
@@ -43,6 +44,8 @@ export interface SessionConfig {
   difficulty: Difficulty;
   roomCode?: string;
   strategy?: Strategy;
+  /** What this player asked to be called, in a room game. */
+  nickname?: string;
   /** A game restored from storage, resumed instead of dealt fresh. */
   resume?: GameState;
 }
@@ -57,6 +60,8 @@ export interface Session {
   busy: boolean;
   connection: ConnectionStatus;
   connectionDetail: string | null;
+  /** The other player's nickname, once they have sent it. */
+  peerName: string | null;
   lastRejection: RejectReason | null;
   submit(move: Move): void;
   restart(): void;
@@ -82,7 +87,7 @@ const DRAW_REVEAL_MS = 500;
 const AI_THINK_MS = 1250;
 
 export function useGameSession(config: SessionConfig): Session {
-  const { mode, rules, difficulty, roomCode, strategy = 'nostr', resume } = config;
+  const { mode, rules, difficulty, roomCode, strategy = 'nostr', nickname, resume } = config;
 
   const isNetwork = mode === 'host' || mode === 'guest';
   const mySeat: PlayerIndex | null = mode === 'guest' ? 1 : 0;
@@ -100,6 +105,7 @@ export function useGameSession(config: SessionConfig): Session {
   const [connectionDetail, setConnectionDetail] = useState<string | null>(null);
   const [lastRejection, setLastRejection] = useState<RejectReason | null>(null);
   const [busy, setBusy] = useState(false);
+  const [peerName, setPeerName] = useState<string | null>(null);
 
   const roomRef = useRef<RoomHandle | null>(null);
   const stateRef = useRef<GameState | null>(state);
@@ -168,6 +174,11 @@ export function useGameSession(config: SessionConfig): Session {
             setConnectionDetail(`Host is using the "${hostRules.label}" scoring table.`);
           }
         },
+        onName: (message) => {
+          // Straight from the other device, so it is sanitized here rather
+          // than trusted anywhere downstream.
+          setPeerName(sanitizeName(message.name, ''));
+        },
         onState: (message) => {
           if (mode !== 'guest') return;
           // Snapshots can arrive out of order; only ever move forward.
@@ -232,6 +243,13 @@ export function useGameSession(config: SessionConfig): Session {
     room.sendState(current, ++seqRef.current);
   }, [mode, connection, rules]);
 
+  // Both sides introduce themselves — a nickname travels in both directions,
+  // unlike the rules, which only the host is authoritative about.
+  useEffect(() => {
+    if (!isNetwork || connection !== 'connected') return;
+    roomRef.current?.sendName(nickname ?? '');
+  }, [isNetwork, connection, nickname]);
+
   // ---------------------------------------------------------------------
   // Persistence
   // ---------------------------------------------------------------------
@@ -275,6 +293,21 @@ export function useGameSession(config: SessionConfig): Session {
 
     return () => clearTimeout(timer);
   }, [state, phase, mode, commit]);
+
+  /**
+   * The final round settles straight into the match result.
+   *
+   * There is no next round to move on to, so asking the player to press
+   * "Next round" before being told who won was a button that existed only to
+   * be dismissed. The round's own breakdown is not lost — the match result
+   * carries it, read from the round state this move leaves in place.
+   */
+  useEffect(() => {
+    if (!state || state.matchOver || mode === 'guest') return;
+    if (state.roundState.phase !== 'round-end' || !state.roundState.result) return;
+    if (state.round < state.rules.rounds) return;
+    commit(applyMove(state, { type: 'nextRound' }));
+  }, [state, mode, commit]);
 
   useEffect(() => {
     if (mode !== 'ai' || !state || state.matchOver) return;
@@ -351,6 +384,7 @@ export function useGameSession(config: SessionConfig): Session {
     busy: busy || phase === 'draw',
     connection,
     connectionDetail,
+    peerName,
     lastRejection,
     submit,
     restart,

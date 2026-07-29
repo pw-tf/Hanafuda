@@ -21,6 +21,7 @@ import {
   encodeRules,
   encodeState,
   type HelloMessage,
+  type NameMessage,
   type IntentMessage,
   type RejectMessage,
   type StateMessage,
@@ -42,6 +43,8 @@ export type ConnectionStatus =
 export interface RoomHandlers {
   onStatus(status: ConnectionStatus, detail?: string): void;
   onHello(message: HelloMessage): void;
+  /** The other player's chosen nickname. Untrusted — sanitize before display. */
+  onName(message: NameMessage): void;
   onState(message: StateMessage): void;
   onIntent(message: IntentMessage, peerId: string): void;
   onReject(message: RejectMessage): void;
@@ -51,6 +54,7 @@ export interface RoomHandle {
   readonly selfId: string;
   readonly strategy: Strategy;
   sendHello(rules: RuleConfig): void;
+  sendName(name: string): void;
   sendState(state: GameState, seq: number): void;
   sendIntent(move: Move): void;
   sendReject(message: Omit<RejectMessage, 'v'>): void;
@@ -102,6 +106,7 @@ export function connectRoom(
   handlers.onStatus('connecting');
 
   const hello = room.makeAction<HelloMessage>(ACTIONS.hello);
+  const name = room.makeAction<NameMessage>(ACTIONS.name);
   const state = room.makeAction<StateMessage>(ACTIONS.state);
   const intent = room.makeAction<IntentMessage>(ACTIONS.intent);
   const reject = room.makeAction<RejectMessage>(ACTIONS.reject);
@@ -141,6 +146,10 @@ export function connectRoom(
     handlers.onHello(message);
   };
 
+  name.onMessage = (message) => {
+    if (message.v === PROTOCOL_VERSION) handlers.onName(message);
+  };
+
   state.onMessage = (message) => {
     if (message.v === PROTOCOL_VERSION) handlers.onState(message);
   };
@@ -165,6 +174,7 @@ export function connectRoom(
     strategy,
     sendHello: (rules) =>
       fireAndForget(hello.send({ v: PROTOCOL_VERSION, json: encodeRules(rules), guestSeat: 1 })),
+    sendName: (nickname) => fireAndForget(name.send({ v: PROTOCOL_VERSION, name: nickname })),
     sendState: (gameState, seq) =>
       fireAndForget(state.send({ v: PROTOCOL_VERSION, seq, json: encodeState(gameState) })),
     sendIntent: (move) => fireAndForget(intent.send({ v: PROTOCOL_VERSION, json: encodeMove(move) })),

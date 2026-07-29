@@ -3,7 +3,7 @@ import type { GameState } from '../engine/game';
 import { clearGame, describeSave, loadGame } from './persistence';
 import type { Difficulty } from '../ai';
 import { DEFAULT_RULES, type RuleConfig } from '../engine/rules';
-import type { Strategy } from '../net/protocol';
+import { MAX_NAME_LENGTH, sanitizeName, type Strategy } from '../net/protocol';
 import { Game } from './screens/Game';
 import { Gallery } from './screens/Gallery';
 import { Lobby } from './screens/Lobby';
@@ -26,11 +26,24 @@ const NAMES: Record<SessionMode, readonly [string, string]> = {
   guest: ['Host', 'You'],
 };
 
+/** Remembered across sessions, so a nickname is typed once, not every game. */
+const NICKNAME_KEY = 'hanafuda-koikoi:nickname';
+
+function readNickname(): string {
+  try {
+    return sanitizeName(window.localStorage.getItem(NICKNAME_KEY) ?? '', '');
+  } catch {
+    // Private-mode Safari throws on access rather than returning null.
+    return '';
+  }
+}
+
 export function App() {
   const [route, navigate] = useHashRoute();
   const [rules, setRules] = useState<RuleConfig>(DEFAULT_RULES);
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [setup, setSetup] = useState<PlaySetup | null>(null);
+  const [nickname, setNickname] = useState(readNickname);
   // Read once on mount: a stale save is worse than no save, and the value is
   // only consulted when the menu is on screen.
   const [saved, setSaved] = useState(() => loadGame());
@@ -61,6 +74,17 @@ export function App() {
   if (route === 'multiplayer') {
     return (
       <Lobby
+        nickname={nickname}
+        onNickname={(name) => {
+          // Stored raw so the field stays editable mid-typing; it is sanitized
+          // on the way out to the wire and on the way back in at startup.
+          setNickname(name.slice(0, MAX_NAME_LENGTH));
+          try {
+            window.localStorage.setItem(NICKNAME_KEY, name);
+          } catch {
+            // Not being able to remember it is not a reason to refuse it.
+          }
+        }}
         onHost={(code, strategy) => startPlay({ mode: 'host', roomCode: code, strategy })}
         onJoin={(code, strategy) => startPlay({ mode: 'guest', roomCode: code, strategy })}
         onBack={() => navigate('menu')}
@@ -77,6 +101,7 @@ export function App() {
         difficulty={difficulty}
         {...(setup.roomCode ? { roomCode: setup.roomCode } : {})}
         {...(setup.strategy ? { strategy: setup.strategy } : {})}
+        {...(nickname ? { nickname } : {})}
         {...(setup.resume ? { resume: setup.resume } : {})}
         names={NAMES[setup.mode]}
         onExit={exit}

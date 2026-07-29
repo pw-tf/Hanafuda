@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   generateRoomCode,
   isValidRoomCode,
+  MAX_NAME_LENGTH,
   normalizeRoomCode,
   ROOM_CODE_LENGTH,
 } from '../../net/protocol';
@@ -11,10 +12,14 @@ export function Lobby({
   onHost,
   onJoin,
   onBack,
+  nickname,
+  onNickname,
 }: {
   onHost(code: string, strategy: Strategy): void;
   onJoin(code: string, strategy: Strategy): void;
   onBack(): void;
+  nickname: string;
+  onNickname(name: string): void;
 }) {
   const [code, setCode] = useState('');
   const [hostCode, setHostCode] = useState(() => generateRoomCode());
@@ -43,6 +48,24 @@ export function Lobby({
         </div>
         <div className="topbar__score" />
       </header>
+
+      {/* Above both halves: it applies whether you host or join, and asking
+          after the code has been typed would be one step too late. */}
+      <section className="card">
+        <h2>Your name</h2>
+        <p className="muted small">What the other player sees on the table.</p>
+        <input
+          className="input input--text"
+          value={nickname}
+          onChange={(e) => onNickname(e.target.value)}
+          placeholder="Player"
+          maxLength={MAX_NAME_LENGTH}
+          autoComplete="nickname"
+          autoCorrect="off"
+          spellCheck={false}
+          aria-label="Your nickname"
+        />
+      </section>
 
       <section className="card">
         <h2>Start a room</h2>

@@ -9,10 +9,11 @@ import { Connecting } from '../components/Connecting';
 import { ScoreSheet } from '../components/ScoreSheet';
 import { CapturePile, PileSummary } from '../components/CapturePile';
 import { KoiKoiCall } from '../components/KoiKoiCall';
-import { KoiKoiPrompt, RoundEnd } from '../components/RoundEnd';
+import { KoiKoiPrompt, RoundBreakdown, RoundEnd } from '../components/RoundEnd';
 import { Sheet } from '../components/Sheet';
 import { YakuPanel } from '../components/YakuPanel';
 import { useGameSession, type SessionConfig } from '../useGameSession';
+import { sanitizeName } from '../../net/protocol';
 
 export interface GameScreenProps extends SessionConfig {
   rules: RuleConfig;
@@ -20,7 +21,7 @@ export interface GameScreenProps extends SessionConfig {
   onExit(): void;
 }
 
-export function Game({ names, onExit, ...config }: GameScreenProps) {
+export function Game({ names: defaultNames, onExit, ...config }: GameScreenProps) {
   const session = useGameSession(config);
   const [selected, setSelected] = useState<CardId | null>(null);
   /** Which player's capture detail is open, if any. */
@@ -101,6 +102,26 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
   }
 
   const round = state.roundState;
+
+  /**
+   * Who to call each player.
+   *
+   * In a room game the two nicknames arrive from opposite ends — mine from
+   * this device, theirs over the wire — so they are stitched together by seat
+   * here rather than fixed by the caller. Either falling back to the generic
+   * label if it has not arrived, or is blank.
+   */
+  const names: readonly [string, string] = isNetwork
+    ? config.mode === 'guest'
+      ? [
+          sanitizeName(session.peerName ?? '', defaultNames[0]),
+          sanitizeName(config.nickname ?? '', defaultNames[1]),
+        ]
+      : [
+          sanitizeName(config.nickname ?? '', defaultNames[0]),
+          sanitizeName(session.peerName ?? '', defaultNames[1]),
+        ]
+    : defaultNames;
 
   /**
    * Which seat the board is drawn from. In pass-and-play both players share
@@ -264,21 +285,22 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
           // Show the totals including this round, otherwise the sheet reads
           // "scores 4 points" next to an unchanged scoreline.
           scores={[state.scores[0] + result.awarded[0], state.scores[1] + result.awarded[1]]}
-          matchOver={false}
           onNext={() => session.submit({ type: 'nextRound' })}
         />
       )}
 
       {state.matchOver && (
-        <Sheet label="Match result" dismissible={false} className="sheet__inner--tight">
-          <p className="sheet__kicker">Match over</p>
-          <h2>
-            {state.scores[seat] > state.scores[opponent]
-              ? 'You win'
-              : state.scores[seat] < state.scores[opponent]
-                ? `${names[opponent]} wins`
-                : 'A draw'}
-          </h2>
+        <Sheet label="Match result" dismissible={false}>
+          <header className="sheet__head sheet__head--centre">
+            <p className="sheet__kicker">Match over</p>
+            <h2>
+              {state.scores[seat] > state.scores[opponent]
+                ? 'You win'
+                : state.scores[seat] < state.scores[opponent]
+                  ? `${names[opponent]} wins`
+                  : 'A draw'}
+            </h2>
+          </header>
           <div className="sheet__scores">
             <div>
               <span>{names[seat]}</span>
@@ -289,6 +311,16 @@ export function Game({ names, onExit, ...config }: GameScreenProps) {
               <b>{state.scores[opponent]}</b>
             </div>
           </div>
+
+          {/* The last round settles straight into this sheet, so its scoring
+              is shown here rather than behind a dismissed "next round". */}
+          {result && (
+            <>
+              <p className="sheet__kicker">Final round {result.round}</p>
+              <RoundBreakdown result={result} rules={state.rules} names={[names[0], names[1]]} />
+            </>
+          )}
+
           <div className="sheet__choices">
             <button type="button" className="btn btn--ghost btn--wide" onClick={onExit}>
               Back to menu

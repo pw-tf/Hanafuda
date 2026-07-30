@@ -16,7 +16,7 @@ app icon; the manifest is already set up for it.
 ```sh
 npm install
 npm run dev      # http://localhost:5173
-npm test         # 145 tests
+npm test         # 181 tests
 npm run build    # typecheck + production build
 ```
 
@@ -174,7 +174,7 @@ src/engine/   pure, serializable, framework-free game logic
   scoring.ts    multiplier arithmetic, in one place
   game.ts       turn/round/match state machine
   rng.ts        seeded mulberry32
-src/ai/       easy (random), normal (greedy), hard (determinized Monte Carlo)
+src/ai/       four opponents: policy, belief, search, tier profiles
 src/art/      card renderer + palette (faces are assets in public/cards/)
 src/net/      room codes, wire protocol, Trystero WebRTC wrapper
 src/ui/       portrait-first React screens
@@ -218,17 +218,42 @@ Playing a card, and flipping the deck card, both follow the same rule:
 
 ### AI
 
-Measured over full matches with seats alternated:
+Four opponents that differ in what they pay attention to, not in how much
+compute they burn:
 
-| Matchup | Result | Points |
+| | Plays like |
+|---|---|
+| **Easy** | Grabs whatever shines, never blocks you, calls koi-koi on a whim |
+| **Normal** | Collects toward a yaku and takes the cards you need |
+| **Hard** | Simulates the rest of the round, and plays the scoreboard |
+| **Expert** | Thinks longer, reads the months you decline, never plays a loose card |
+
+None of them ever reads your hand or the deck. They sample concrete assignments
+of the unseen cards consistent with what they have observed, play those out, and
+average. `GameState.seed` determines the whole deal, so that honesty is pinned
+down by a test rather than left to convention: the hidden cards are permuted
+behind identical observations and the chosen move must not change.
+
+Measured with `npm run bench:ai`, which plays every seed twice with the seats
+swapped on the same deal — paired, the way duplicate bridge is scored, so most
+of the deal variance cancels:
+
+| Matchup | Win rate | Paired point diff |
 |---|---|---|
-| Normal vs Easy | 89W–11L over 100 matches | 2733–623 |
-| Hard vs Easy | 35W–5L over 40 matches | 2677–230 |
-| Hard vs Normal | 23W–16L–1D over 40 matches | 1075–520 |
+| Normal vs Easy | 59% | +12.6 |
+| Hard vs Normal | 64% | +31.6 *(significant)* |
+| Expert vs Hard | 50% | +5.8 *(not significant)* |
 
-Hard's slowest move in that run was 174 ms (p95 90 ms). It samples concrete
-assignments of the unseen cards consistent with what it has observed, plays
-each out, and averages — it does not read the opponent's hand.
+**Hard is the one to beat; Expert's edge over it is not established.** Extra
+budget and the belief model both measured at 50% against their own ablations.
+The honest reading is that flat determinized search saturates: past a few dozen
+sampled worlds the limit is strategy fusion — each playout assumes the hidden
+cards become known — and more samples do not fix that. Information-set MCTS
+would, and is a different program.
+
+The search runs in slices inside the pause the game already waits before the
+opponent moves, so a turn takes the same ~2.3 s it always did, whatever tier you
+pick.
 
 ### Multiplayer
 
@@ -259,7 +284,7 @@ read aloud round-trips reliably.
 
 ## Testing
 
-`npm test` — 123 tests, ~25 s.
+`npm test` — 181 tests, ~20 s. `npm run bench:ai` measures AI strength; it takes minutes and is deliberately not part of the suite.
 
 - **Deck structure** — all invariants listed above.
 - **Yaku truth table** — every yaku at its threshold and one below; brights

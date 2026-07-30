@@ -154,7 +154,7 @@ describe('game persistence', () => {
   it('describes a save for the resume button', () => {
     const state = createGame(STANDARD_RULES, 3, 0);
     expect(describeSave({ version: 1, savedAt: 0, mode: 'ai', difficulty: 'hard', state })).toBe(
-      'vs hard · round 1/12 · 0–0',
+      'vs Hard · round 1/12 · 0–0',
     );
     expect(describeSave({ version: 1, savedAt: 0, mode: 'local', difficulty: 'easy', state })).toContain(
       'pass and play',

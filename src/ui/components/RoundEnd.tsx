@@ -8,9 +8,10 @@
  * not close them.
  */
 
-import type { RoundResult } from '../../engine/game';
+import type { PlayerIndex, RoundResult } from '../../engine/game';
 import { YAKU_INFO, type RuleConfig } from '../../engine/rules';
 import { CardFace } from '../../art/CardFace';
+import { plural } from '../text';
 import { Sheet } from './Sheet';
 
 const REASON_TEXT: Record<RoundResult['reason'], string> = {
@@ -119,14 +120,26 @@ export function RoundEnd({
   names,
   onNext,
   scores,
+  youSeat,
 }: {
   result: RoundResult;
   rules: RuleConfig;
   names: readonly [string, string];
   onNext(): void;
   scores: readonly [number, number];
+  /** The seat the player reading this holds, or null in pass-and-play. */
+  youSeat: PlayerIndex | null;
 }) {
   const { winner, awarded } = result;
+
+  // Second person for your own round, third for theirs — "You scores 5
+  // points" is what one line for both gets you.
+  const headline =
+    winner === null
+      ? 'No score'
+      : winner === youSeat
+        ? `You score ${plural(awarded[winner], 'point')}`
+        : `${names[winner]} scores ${plural(awarded[winner], 'point')}`;
 
   return (
     <Sheet label="Round result" dismissible={false}>
@@ -134,11 +147,7 @@ export function RoundEnd({
         <p className="sheet__kicker">
           Round {result.round} · {REASON_TEXT[result.reason]}
         </p>
-        <h2>
-          {winner === null
-            ? 'No score'
-            : `${names[winner]} ${awarded[winner] === 1 ? 'scores 1 point' : `scores ${awarded[winner]} points`}`}
-        </h2>
+        <h2>{headline}</h2>
       </header>
 
       <RoundBreakdown result={result} rules={rules} names={names} />
@@ -173,7 +182,7 @@ export function KoiKoiPrompt({
 }) {
   return (
     <Sheet label="Koi-Koi or stop" dismissible={false} className="sheet__inner--tight">
-      <h2>You have {base} points</h2>
+      <h2>You have {plural(base, 'point')}</h2>
       <p className="sheet__explain">
         Stop now and bank them, or call Koi-Koi to keep playing for more — the multiplier
         rises, but your opponent can still take the round.

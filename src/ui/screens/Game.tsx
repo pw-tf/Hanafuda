@@ -134,6 +134,13 @@ export function Game({ names: defaultNames, onExit, ...config }: GameScreenProps
       : (session.mySeat ?? 0);
 
   const opponent: PlayerIndex = seat === 0 ? 1 : 0;
+
+  /**
+   * Which seat "you" means, for text that addresses the reader. Pass-and-play
+   * has no answer — both players share the screen and both are named — so it
+   * speaks about them in the third person instead.
+   */
+  const youSeat: PlayerIndex | null = config.mode === 'local' ? null : seat;
   const result = round.result;
   const myYaku = currentYaku(state, seat);
 
@@ -285,6 +292,7 @@ export function Game({ names: defaultNames, onExit, ...config }: GameScreenProps
           // Show the totals including this round, otherwise the sheet reads
           // "scores 4 points" next to an unchanged scoreline.
           scores={[state.scores[0] + result.awarded[0], state.scores[1] + result.awarded[1]]}
+          youSeat={youSeat}
           onNext={() => session.submit({ type: 'nextRound' })}
         />
       )}

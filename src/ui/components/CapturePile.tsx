@@ -10,6 +10,7 @@ import { getCard, type CardId, type CardKind } from '../../engine/cards';
 import { CardBack, CardFace } from '../../art/CardFace';
 import type { RuleConfig } from '../../engine/rules';
 import { evaluateYaku } from '../../engine/yaku';
+import { plural } from '../text';
 
 const ORDER: CardKind[] = ['hikari', 'tane', 'tanzaku', 'kasu'];
 
@@ -68,7 +69,7 @@ export function PileSummary({
       type="button"
       className={`summary${active ? ' summary--active' : ''}`}
       onClick={onOpen}
-      aria-label={`${name}: ${cards.length} cards captured, ${base} points. Open details.`}
+      aria-label={`${name}: ${plural(cards.length, 'card')} captured, ${plural(base, 'point')}. Open details.`}
     >
       {stack && (
         <span className="summary__stack" title={`${stack.label}: ${stack.count}`}>

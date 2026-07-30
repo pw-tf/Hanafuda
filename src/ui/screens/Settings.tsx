@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   GAMEDESIGN_RULES,
   STANDARD_RULES,
@@ -7,20 +8,40 @@ import {
   type KoiKoiMultiplierMode,
   type DrawRule,
 } from '../../engine/rules';
+import type { Preferences } from '../preferences';
+
+type Tab = 'rules' | 'customise';
+
+const TAB_LABEL: Record<Tab, string> = {
+  rules: 'Rules',
+  customise: 'Customise',
+};
 
 /**
- * Every rule the engine reads is editable here. The two presets exist because
- * published sources genuinely disagree on the Brights values — see README.
+ * Everything the player can change, in two tabs.
+ *
+ * Rules are what the engine reads; Customise is what the app looks like. They
+ * are separated because they behave differently — a rule change alters how a
+ * game is scored and only applies to the next one, while a look change is
+ * immediate and remembered between visits.
+ *
+ * The two scoring presets exist because published sources genuinely disagree on
+ * the Brights values; see the README.
  */
 export function Settings({
   rules,
   onChange,
+  preferences,
+  onPreferences,
   onBack,
 }: {
   rules: RuleConfig;
   onChange(next: RuleConfig): void;
+  preferences: Preferences;
+  onPreferences(next: Preferences): void;
   onBack(): void;
 }) {
+  const [tab, setTab] = useState<Tab>('rules');
   const set = <K extends keyof RuleConfig>(key: K, value: RuleConfig[K]) =>
     onChange({ ...rules, [key]: value });
 
@@ -50,112 +71,164 @@ export function Settings({
           ‹
         </button>
         <div className="topbar__mid">
-          <strong>Rules</strong>
+          <strong>Settings</strong>
         </div>
         <div className="topbar__score" />
       </header>
 
-      <section className="card">
-        <h2>Scoring table</h2>
-        <p className="muted small">
-          Sources disagree on the Brights values. Both published tables ship here; everything
-          else is identical between them.
-        </p>
-        <div className="segmented" role="group" aria-label="Scoring preset">
-          {[STANDARD_RULES, GAMEDESIGN_RULES].map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              className={`segmented__btn ${rules.id === preset.id ? 'is-on' : ''}`}
-              onClick={() => usePreset(preset)}
-              aria-pressed={rules.id === preset.id}
-            >
-              {preset.shortLabel}
-            </button>
-          ))}
+      <div className="segmented tabs" role="tablist" aria-label="Settings sections">
+        {(Object.keys(TAB_LABEL) as Tab[]).map((id) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            id={`tab-${id}`}
+            aria-selected={tab === id}
+            aria-controls={`panel-${id}`}
+            className={`segmented__btn ${tab === id ? 'is-on' : ''}`}
+            onClick={() => setTab(id)}
+          >
+            {TAB_LABEL[id]}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'customise' && (
+        <div role="tabpanel" id="panel-customise" aria-labelledby="tab-customise">
+          <section className="card">
+            <h2>Background</h2>
+            <p className="muted small">
+              A painted backdrop behind the game. It sits well back so the cards and the
+              scoreline stay as readable as they are without it.
+            </p>
+
+            <figure className="preview">
+              <img
+                src={`${import.meta.env.BASE_URL}backgrounds/blossom.webp`}
+                alt="Plum blossom over a teal sun, on cream paper"
+                width={120}
+                height={160}
+                loading="lazy"
+                decoding="async"
+              />
+              <figcaption className="menu__hint">Blossom</figcaption>
+            </figure>
+
+            <Toggle
+              label="Show the background"
+              hint="Remembered on this device."
+              checked={preferences.background}
+              onChange={(v) => onPreferences({ ...preferences, background: v })}
+            />
+          </section>
         </div>
-        <dl className="deflist">
-          {brights.map(([name, pts]) => (
-            <div key={name}>
-              <dt>{name}</dt>
-              <dd>{pts}</dd>
+      )}
+
+      {tab === 'rules' && (
+        <div role="tabpanel" id="panel-rules" aria-labelledby="tab-rules">
+          <section className="card">
+            <h2>Scoring table</h2>
+            <p className="muted small">
+              Sources disagree on the Brights values. Both published tables ship here; everything
+              else is identical between them.
+            </p>
+            <div className="segmented" role="group" aria-label="Scoring preset">
+              {[STANDARD_RULES, GAMEDESIGN_RULES].map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  className={`segmented__btn ${rules.id === preset.id ? 'is-on' : ''}`}
+                  onClick={() => usePreset(preset)}
+                  aria-pressed={rules.id === preset.id}
+                >
+                  {preset.shortLabel}
+                </button>
+              ))}
             </div>
-          ))}
-        </dl>
-      </section>
+            <dl className="deflist">
+              {brights.map(([name, pts]) => (
+                <div key={name}>
+                  <dt>{name}</dt>
+                  <dd>{pts}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
 
-      <section className="card">
-        <h2>Optional rules</h2>
+          <section className="card">
+            <h2>Optional rules</h2>
 
-        <Toggle
-          label="Hand yaku (teyaku)"
-          hint="Teshi and Kuttsuki score 6 at the deal and end the round immediately."
-          checked={rules.teyakuEnabled}
-          onChange={(v) => set('teyakuEnabled', v)}
-        />
+            <Toggle
+              label="Hand yaku (teyaku)"
+              hint="Teshi and Kuttsuki score 6 at the deal and end the round immediately."
+              checked={rules.teyakuEnabled}
+              onChange={(v) => set('teyakuEnabled', v)}
+            />
 
-        <Toggle
-          label="Month cards (tsuki-fuda)"
-          hint="4 points for all four cards of the round's month. Weakly sourced, so off by default."
-          checked={rules.tsukiFudaEnabled}
-          onChange={(v) => set('tsukiFudaEnabled', v)}
-        />
+            <Toggle
+              label="Month cards (tsuki-fuda)"
+              hint="4 points for all four cards of the round's month. Weakly sourced, so off by default."
+              checked={rules.tsukiFudaEnabled}
+              onChange={(v) => set('tsukiFudaEnabled', v)}
+            />
 
-        <Choice<SakeCupMode>
-          label="Sake cup counts as"
-          hint="Whether the September cup also adds to your chaff total."
-          value={rules.sakeCupMode}
-          options={[
-            ['tane-only', 'Animal only'],
-            ['tane-and-kasu', 'Animal + chaff'],
-          ]}
-          onChange={(v) => set('sakeCupMode', v)}
-        />
+            <Choice<SakeCupMode>
+              label="Sake cup counts as"
+              hint="Whether the September cup also adds to your chaff total."
+              value={rules.sakeCupMode}
+              options={[
+                ['tane-only', 'Animal only'],
+                ['tane-and-kasu', 'Animal + chaff'],
+              ]}
+              onChange={(v) => set('sakeCupMode', v)}
+            />
 
-        <Choice<KoiKoiMultiplierMode>
-          label="Koi-Koi multiplier"
-          hint="Sum: +1 per koi-koi called by either player. Opponent only: ×2 if they called it."
-          value={rules.koiKoiMultiplierMode}
-          options={[
-            ['sum', 'Sum of calls'],
-            ['opponentDoubleOnly', 'Opponent only'],
-          ]}
-          onChange={(v) => set('koiKoiMultiplierMode', v)}
-        />
+            <Choice<KoiKoiMultiplierMode>
+              label="Koi-Koi multiplier"
+              hint="Sum: +1 per koi-koi called by either player. Opponent only: ×2 if they called it."
+              value={rules.koiKoiMultiplierMode}
+              options={[
+                ['sum', 'Sum of calls'],
+                ['opponentDoubleOnly', 'Opponent only'],
+              ]}
+              onChange={(v) => set('koiKoiMultiplierMode', v)}
+            />
 
-        <Choice<DrawRule>
-          label="Nobody scores"
-          hint="When both hands empty and no one called the round."
-          value={rules.drawRule}
-          options={[
-            ['no-score', 'No score'],
-            ['dealer-6', 'Dealer takes 6'],
-          ]}
-          onChange={(v) => set('drawRule', v)}
-        />
+            <Choice<DrawRule>
+              label="Nobody scores"
+              hint="When both hands empty and no one called the round."
+              value={rules.drawRule}
+              options={[
+                ['no-score', 'No score'],
+                ['dealer-6', 'Dealer takes 6'],
+              ]}
+              onChange={(v) => set('drawRule', v)}
+            />
 
-        <Choice<number>
-          label="Match length"
-          hint="Rounds per match. The deal alternates every round."
-          value={rules.rounds}
-          options={[
-            [1, '1'],
-            [3, '3'],
-            [6, '6'],
-            [12, '12'],
-          ]}
-          onChange={(v) => set('rounds', v)}
-        />
-      </section>
+            <Choice<number>
+              label="Match length"
+              hint="Rounds per match. The deal alternates every round."
+              value={rules.rounds}
+              options={[
+                [1, '1'],
+                [3, '3'],
+                [6, '6'],
+                [12, '12'],
+              ]}
+              onChange={(v) => set('rounds', v)}
+            />
+          </section>
 
-      <section className="card">
-        <h2>Multipliers</h2>
-        <p className="muted small">
-          A round total is <code>base × ({rules.sevenPointThreshold}+ ? ×
-          {rules.sevenPointMultiplier} : ×1) × koi-koi</code>. The threshold is tested against
-          the raw yaku total, before any multiplier.
-        </p>
-      </section>
+          <section className="card">
+            <h2>Multipliers</h2>
+            <p className="muted small">
+              A round total is <code>base × ({rules.sevenPointThreshold}+ ? ×
+              {rules.sevenPointMultiplier} : ×1) × koi-koi</code>. The threshold is tested against
+              the raw yaku total, before any multiplier.
+            </p>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

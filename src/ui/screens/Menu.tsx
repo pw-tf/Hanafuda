@@ -1,4 +1,4 @@
-import { DIFFICULTY_BLURB, DIFFICULTY_LABEL, type Difficulty } from '../../ai';
+import { DIFFICULTIES, DIFFICULTY_BLURB, DIFFICULTY_LABEL, type Difficulty } from '../../ai';
 import { CardFace } from '../../art/CardFace';
 import { CARD_IDS } from '../../engine/cards';
 import { Attribution } from './Gallery';
@@ -60,7 +60,7 @@ export function Menu({
             Opponent
           </label>
           <div className="segmented" role="group" aria-labelledby="difficulty-label">
-            {(['easy', 'normal', 'hard'] as Difficulty[]).map((d) => (
+            {DIFFICULTIES.map((d) => (
               <button
                 key={d}
                 type="button"

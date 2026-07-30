@@ -15,7 +15,7 @@
 
 import { ALL_CARD_IDS, type CardId } from '../engine/cards';
 import type { GameState } from '../engine/game';
-import type { Difficulty } from '../ai';
+import { DIFFICULTY_LABEL, type Difficulty } from '../ai';
 import type { SessionMode } from './useGameSession';
 import type { Strategy } from '../net/protocol';
 
@@ -121,7 +121,7 @@ export function clearGame(): void {
 export function describeSave(save: SavedGame): string {
   const where =
     save.mode === 'ai'
-      ? `vs ${save.difficulty}`
+      ? `vs ${DIFFICULTY_LABEL[save.difficulty]}`
       : save.mode === 'local'
         ? 'pass and play'
         : `room ${save.roomCode ?? '—'}`;

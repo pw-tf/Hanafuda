@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { chooseAiMove, type Difficulty } from '../ai';
+import { createAiAgent, type AiAgent, type Difficulty } from '../ai';
 import {
   applyMove,
   createGame,
@@ -86,6 +86,13 @@ const DRAW_REVEAL_MS = 500;
  */
 const AI_THINK_MS = 1250;
 
+/**
+ * How long the search may hold the main thread before handing it back.
+ * Comfortably inside a 60fps frame, so the table keeps animating while the
+ * opponent thinks.
+ */
+const SLICE_MS = 8;
+
 export function useGameSession(config: SessionConfig): Session {
   const { mode, rules, difficulty, roomCode, strategy = 'nostr', nickname, resume } = config;
 
@@ -112,6 +119,12 @@ export function useGameSession(config: SessionConfig): Session {
   const seqRef = useRef(0);
   const lastSeenSeq = useRef(-1);
   const aiRng = useRef(createRng(initialSeed ^ 0x5bf03635));
+  // The AI sits in seat 1 and keeps a belief about seat 0's hand, so it has to
+  // survive across turns rather than being rebuilt per decision.
+  const agentRef = useRef<AiAgent | null>(null);
+  if (mode === 'ai' && (!agentRef.current || agentRef.current.difficulty !== difficulty)) {
+    agentRef.current = createAiAgent(difficulty, 1, aiRng.current);
+  }
   // Read inside the room effect without making it a dependency, which would
   // tear down and rejoin the room every time the rules object changed.
   const rulesRef = useRef(rules);
@@ -309,30 +322,71 @@ export function useGameSession(config: SessionConfig): Session {
     commit(applyMove(state, { type: 'nextRound' }));
   }, [state, mode, commit]);
 
+  // The AI watches every position, not only its own turns — inference comes
+  // from what the *other* player did, so a state it never saw is evidence lost.
+  useEffect(() => {
+    if (mode !== 'ai' || !state) return;
+    agentRef.current?.observe(state);
+  }, [mode, state]);
+
+  /**
+   * The AI's turn.
+   *
+   * The search starts immediately and runs in slices, rather than starting
+   * after the thinking pause and adding its cost on top. The player waits
+   * exactly as long as before, the deck-flip animation keeps its frames, and
+   * the stronger tiers get most of a second of real compute for free.
+   */
   useEffect(() => {
     if (mode !== 'ai' || !state || state.matchOver) return;
     if (phase === 'round-end' || phase === 'draw') return;
     if (currentSeat !== 1) return;
 
+    const agent = agentRef.current;
+    if (!agent) return;
+
     setBusy(true);
-    const timer = setTimeout(() => {
-      const current = stateRef.current;
-      if (!current || current.roundState.current !== 1) {
+    let cancelled = false;
+    const startedFrom = state;
+    const plan = agent.plan(state);
+    const readyAt = Date.now() + AI_THINK_MS;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const finish = (move: Move) => {
+      // States are immutable, so identity is an exact "nothing has moved on"
+      // test — the position must still be the one we planned against.
+      if (cancelled || stateRef.current !== startedFrom) {
         setBusy(false);
         return;
       }
-      try {
-        commit(applyMove(current, chooseAiMove(current, difficulty, aiRng.current)));
-      } finally {
-        setBusy(false);
-      }
-    }, AI_THINK_MS);
-
-    return () => {
-      clearTimeout(timer);
+      commit(applyMove(startedFrom, move));
       setBusy(false);
     };
-  }, [mode, state, phase, currentSeat, difficulty, commit]);
+
+    // One slice: search until it would cost a frame, then hand the thread back.
+    const step = () => {
+      if (cancelled) return;
+      const sliceEnd = Date.now() + SLICE_MS;
+      let result = plan.next();
+      while (!result.done && Date.now() < sliceEnd) result = plan.next();
+
+      if (result.done) {
+        const move = result.value;
+        const wait = Math.max(0, readyAt - Date.now());
+        timer = setTimeout(() => finish(move), wait);
+        return;
+      }
+      timer = setTimeout(step, 0);
+    };
+
+    step();
+
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) clearTimeout(timer);
+      setBusy(false);
+    };
+  }, [mode, state, phase, currentSeat, commit]);
 
   // ---------------------------------------------------------------------
   // Submitting a move

@@ -162,6 +162,24 @@ lazy-loads and caches them for free.
 The card *back* is this project's own work, since the Commons set is faces
 only.
 
+### Background artwork
+
+`public/backgrounds/blossom.webp` is the project owner's own painting, not a
+third-party asset, so nothing in `NOTICE.md` applies to it. It ships at
+1080×1440 WebP (~110 kB) — twice the CSS size of the tallest phone viewport it
+has to cover, which is enough for a 3× screen given it never appears sharp.
+
+It is switched on by default and can be turned off under **Settings →
+Customise**; the choice is stored in `localStorage` under
+`hanafuda-koikoi:prefs`, separate from the saved game so a game that fails to
+parse cannot take the preference down with it.
+
+The image is drawn by a single fixed element rendered once in `App`, above
+whichever screen is showing, rather than per screen — otherwise the browser
+re-decodes it on every navigation and the artwork visibly flashes. It carries a
+78% scrim, and while it is on, `--panel` flips from a white wash to a dark one
+so text keeps its own calm ground instead of sitting straight on a branch.
+
 ---
 
 ## Architecture
@@ -178,6 +196,7 @@ src/ai/       four opponents: policy, belief, search, tier profiles
 src/art/      card renderer + palette (faces are assets in public/cards/)
 src/net/      room codes, wire protocol, Trystero WebRTC wrapper
 src/ui/       portrait-first React screens
+  preferences.ts  how it looks, kept apart from the saved game
 ```
 
 The engine is pure: `applyMove` never mutates its input and a `GameState` is

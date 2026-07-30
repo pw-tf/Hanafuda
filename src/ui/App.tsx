@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { GameState } from '../engine/game';
 import { warmCardCache } from '../art/CardFace';
+import { loadPreferences, savePreferences, type Preferences } from './preferences';
 import { clearGame, describeSave, loadGame } from './persistence';
 import type { Difficulty } from '../ai';
 import { DEFAULT_RULES, type RuleConfig } from '../engine/rules';
@@ -52,6 +53,22 @@ export function App() {
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [setup, setSetup] = useState<PlaySetup | null>(null);
   const [nickname, setNickname] = useState(readNickname);
+  const [preferences, setPreferences] = useState(loadPreferences);
+
+  /**
+   * The background is a document-level concern — it sits behind every screen,
+   * and the screens have to drop their own gradients to let it through — so it
+   * is driven by an attribute on the root element rather than threaded through
+   * each one as a prop.
+   */
+  useEffect(() => {
+    document.documentElement.dataset.bg = preferences.background ? 'on' : 'off';
+  }, [preferences.background]);
+
+  const updatePreferences = useCallback((next: Preferences) => {
+    setPreferences(next);
+    savePreferences(next);
+  }, []);
   // Read once on mount: a stale save is worse than no save, and the value is
   // only consulted when the menu is on screen.
   const [saved, setSaved] = useState(() => loadGame());
@@ -71,84 +88,110 @@ export function App() {
     navigate('menu');
   }, [navigate]);
 
-  if (route === 'gallery') {
-    return <Gallery />;
-  }
+  /**
+   * The painted backdrop, shared by every screen.
+   *
+   * Rendered once here rather than per screen so it is not torn down and
+   * rebuilt on navigation — the browser would re-decode the image and the
+   * artwork would visibly flash between screens.
+   */
+  const backdrop = preferences.background ? <div className="appbg" aria-hidden="true" /> : null;
 
-  if (route === 'settings') {
-    return <Settings rules={rules} onChange={setRules} onBack={() => navigate('menu')} />;
-  }
+  const screen = () => {
+    if (route === 'gallery') {
+      return <Gallery />;
+    }
 
-  if (route === 'multiplayer') {
+    if (route === 'settings') {
+      return (
+        <Settings
+          rules={rules}
+          onChange={setRules}
+          preferences={preferences}
+          onPreferences={updatePreferences}
+          onBack={() => navigate('menu')}
+        />
+      );
+    }
+
+    if (route === 'multiplayer') {
+      return (
+        <Lobby
+          nickname={nickname}
+          onNickname={(name) => {
+            // Stored raw so the field stays editable mid-typing; it is sanitized
+            // on the way out to the wire and on the way back in at startup.
+            setNickname(name.slice(0, MAX_NAME_LENGTH));
+            try {
+              window.localStorage.setItem(NICKNAME_KEY, name);
+            } catch {
+              // Not being able to remember it is not a reason to refuse it.
+            }
+          }}
+          onHost={(code, strategy) => startPlay({ mode: 'host', roomCode: code, strategy })}
+          onJoin={(code, strategy) => startPlay({ mode: 'guest', roomCode: code, strategy })}
+          onBack={() => navigate('menu')}
+        />
+      );
+    }
+
+    if (route === 'play' && setup) {
+      return (
+        <Game
+          key={`${setup.mode}-${setup.roomCode ?? 'solo'}`}
+          mode={setup.mode}
+          rules={rules}
+          difficulty={difficulty}
+          {...(setup.roomCode ? { roomCode: setup.roomCode } : {})}
+          {...(setup.strategy ? { strategy: setup.strategy } : {})}
+          {...(nickname ? { nickname } : {})}
+          {...(setup.resume ? { resume: setup.resume } : {})}
+          names={NAMES[setup.mode]}
+          onExit={exit}
+        />
+      );
+    }
+
     return (
-      <Lobby
-        nickname={nickname}
-        onNickname={(name) => {
-          // Stored raw so the field stays editable mid-typing; it is sanitized
-          // on the way out to the wire and on the way back in at startup.
-          setNickname(name.slice(0, MAX_NAME_LENGTH));
-          try {
-            window.localStorage.setItem(NICKNAME_KEY, name);
-          } catch {
-            // Not being able to remember it is not a reason to refuse it.
-          }
-        }}
-        onHost={(code, strategy) => startPlay({ mode: 'host', roomCode: code, strategy })}
-        onJoin={(code, strategy) => startPlay({ mode: 'guest', roomCode: code, strategy })}
-        onBack={() => navigate('menu')}
-      />
-    );
-  }
-
-  if (route === 'play' && setup) {
-    return (
-      <Game
-        key={`${setup.mode}-${setup.roomCode ?? 'solo'}`}
-        mode={setup.mode}
-        rules={rules}
+      <Menu
         difficulty={difficulty}
-        {...(setup.roomCode ? { roomCode: setup.roomCode } : {})}
-        {...(setup.strategy ? { strategy: setup.strategy } : {})}
-        {...(nickname ? { nickname } : {})}
-        {...(setup.resume ? { resume: setup.resume } : {})}
-        names={NAMES[setup.mode]}
-        onExit={exit}
+        onDifficulty={setDifficulty}
+        onPlayAi={() => {
+          clearGame();
+          setSaved(null);
+          startPlay({ mode: 'ai' });
+        }}
+        onPlayLocal={() => {
+          clearGame();
+          setSaved(null);
+          startPlay({ mode: 'local' });
+        }}
+        onMultiplayer={() => navigate('multiplayer')}
+        onSettings={() => navigate('settings')}
+        onGallery={() => navigate('gallery')}
+        resumable={saved ? describeSave(saved) : null}
+        onResume={() => {
+          if (!saved) return;
+          setDifficulty(saved.difficulty);
+          startPlay({
+            mode: saved.mode,
+            resume: saved.state,
+            ...(saved.roomCode ? { roomCode: saved.roomCode } : {}),
+            ...(saved.strategy ? { strategy: saved.strategy } : {}),
+          });
+        }}
+        onDiscardSave={() => {
+          clearGame();
+          setSaved(null);
+        }}
       />
     );
-  }
+  };
 
   return (
-    <Menu
-      difficulty={difficulty}
-      onDifficulty={setDifficulty}
-      onPlayAi={() => {
-        clearGame();
-        setSaved(null);
-        startPlay({ mode: 'ai' });
-      }}
-      onPlayLocal={() => {
-        clearGame();
-        setSaved(null);
-        startPlay({ mode: 'local' });
-      }}
-      onMultiplayer={() => navigate('multiplayer')}
-      onSettings={() => navigate('settings')}
-      onGallery={() => navigate('gallery')}
-      resumable={saved ? describeSave(saved) : null}
-      onResume={() => {
-        if (!saved) return;
-        setDifficulty(saved.difficulty);
-        startPlay({
-          mode: saved.mode,
-          resume: saved.state,
-          ...(saved.roomCode ? { roomCode: saved.roomCode } : {}),
-          ...(saved.strategy ? { strategy: saved.strategy } : {}),
-        });
-      }}
-      onDiscardSave={() => {
-        clearGame();
-        setSaved(null);
-      }}
-    />
+    <>
+      {backdrop}
+      {screen()}
+    </>
   );
 }

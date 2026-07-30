@@ -87,7 +87,7 @@ export function Menu({
 
         <div className="menu__row">
           <button type="button" className="btn btn--ghost" onClick={onSettings}>
-            Rules
+            Settings
           </button>
           <button type="button" className="btn btn--ghost" onClick={onGallery}>
             Card deck

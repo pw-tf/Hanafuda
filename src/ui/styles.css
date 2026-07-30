@@ -166,6 +166,63 @@ code {
   background: radial-gradient(120% 80% at 50% 0%, #2a2a2d 0%, var(--felt) 55%, var(--felt-2) 100%);
 }
 
+/* ------------------------------------------------------------ background */
+
+/*
+ * The painted background, when it is switched on.
+ *
+ * A fixed element rather than `background-attachment: fixed`, which iOS Safari
+ * has never handled reliably — it judders while scrolling and sometimes drops
+ * out entirely. This also keeps the artwork still between screens instead of
+ * restarting on each one.
+ *
+ * `z-index: -1` puts it above the page canvas but below everything in the
+ * document, which works because nothing between here and the root creates a
+ * stacking context.
+ */
+.appbg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: url('/backgrounds/blossom.webp');
+  background-size: cover;
+  background-position: center;
+  pointer-events: none;
+}
+
+/*
+ * Dimmed hard, and not as an apology.
+ *
+ * The painting is cream and the interface is pale text on charcoal, so laid in
+ * plainly it would make everything unreadable. At this strength the blossom and
+ * the sun read as atmosphere behind the game while every contrast ratio in the
+ * app stays exactly where it was.
+ */
+.appbg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(18, 18, 20, 0.78);
+}
+
+/* With the artwork behind it, each screen's own gradient would hide it. */
+:root[data-bg='on'] .screen {
+  background: transparent;
+}
+
+/*
+ * Panels go from a light wash to a dark one when the artwork is showing.
+ *
+ * `--panel` is white at 5%, which is a *lightening* — over a flat charcoal
+ * screen that reads as a raised surface, but over the painting it is nearly
+ * invisible and body text ends up sitting straight on a branch. Darkening
+ * instead gives every block of text its own calm ground while the artwork still
+ * carries the space between them.
+ */
+:root[data-bg='on'] {
+  --panel: rgba(16, 16, 18, 0.55);
+}
+
 .screen--center {
   display: flex;
   flex-direction: column;
@@ -1150,6 +1207,48 @@ code {
   background: var(--lacquer);
   color: var(--on-lacquer);
   font-weight: 700;
+}
+
+/* Section tabs. Same control as the segmented pickers, but sized as a primary
+   navigation element rather than a setting inside a card. */
+.tabs {
+  flex: none;
+}
+
+.tabs .segmented__btn {
+  min-height: 3rem;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+}
+
+/* The tab panel is a plain wrapper, so it has to reproduce the screen's own
+   column spacing or the cards inside it would butt together. */
+.screen--settings [role='tabpanel'] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* A sample of the artwork at roughly the proportions it fills the screen at,
+   so the toggle is not a guess about an image you cannot see. */
+.preview {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.preview img {
+  width: 6rem;
+  height: 8rem;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.preview figcaption {
+  margin: 0;
 }
 
 /* Tuned for the room code: monospaced, wide-tracked, uppercase, centred —

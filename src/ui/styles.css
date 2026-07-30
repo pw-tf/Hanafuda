@@ -193,10 +193,11 @@ code {
 /*
  * Dimmed hard, and not as an apology.
  *
- * The painting is cream and the interface is pale text on charcoal, so laid in
- * plainly it would make everything unreadable. At this strength the blossom and
- * the sun read as atmosphere behind the game while every contrast ratio in the
- * app stays exactly where it was.
+ * The painting's own ground is near-black, but the branch is bone white and the
+ * sun is a saturated red, and the interface is pale text on charcoal — laid in
+ * plainly those two would fight the type wherever they fell. At this strength
+ * the blossom and the sun read as atmosphere behind the game while every
+ * contrast ratio in the app stays exactly where it was.
  */
 .appbg::after {
   content: '';

@@ -97,15 +97,11 @@ export function Settings({
         <div role="tabpanel" id="panel-customise" aria-labelledby="tab-customise">
           <section className="card">
             <h2>Background</h2>
-            <p className="muted small">
-              A painted backdrop behind the game. It sits well back so the cards and the
-              scoreline stay as readable as they are without it.
-            </p>
 
             <figure className="preview">
               <img
                 src={`${import.meta.env.BASE_URL}backgrounds/blossom.webp`}
-                alt="Plum blossom over a teal sun, on cream paper"
+                alt="Plum blossom over a deep red sun, on near-black paper"
                 width={120}
                 height={160}
                 loading="lazy"

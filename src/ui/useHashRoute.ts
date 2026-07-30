@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 
 /**
  * Minimal hash routing. A full router would be more machinery than this app
- * needs — there are five screens and no nested or parameterised routes beyond
- * the room code.
+ * needs — there are a handful of flat screens and no nested or parameterised
+ * routes beyond the room code.
  */
 export function useHashRoute(): [string, (next: string) => void] {
   const read = () => window.location.hash.replace(/^#\/?/, '') || 'menu';

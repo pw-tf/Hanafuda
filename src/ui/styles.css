@@ -1166,6 +1166,22 @@ code {
   width: 100%;
 }
 
+/* A menu button that names its destination on one line and explains it on the
+   next, so the home screen can stay a list of two choices without going terse. */
+.btn--stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  line-height: 1.25;
+  padding-block: 0.6rem;
+}
+
+.btn__sub {
+  font-size: 0.72rem;
+  font-weight: 500;
+  opacity: 0.75;
+}
+
 .btn--primary {
   background: linear-gradient(var(--lacquer-hi), var(--lacquer-lo));
   border-color: var(--lacquer-hi);
@@ -1288,8 +1304,12 @@ code {
 
 /* ---------------------------------------------------------------- lobby */
 
+/* Every screen below the home screen is the same shape: a topbar with a back
+   button, then a stack of cards. */
 .screen--lobby,
-.screen--settings {
+.screen--settings,
+.screen--setup,
+.screen--howto {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -1426,12 +1446,45 @@ code {
   text-align: right;
 }
 
+/* The how-to lists pair a phrase with a phrase rather than a name with a
+   number, so both sides get half the row and the weight comes down. */
+.deflist--wide {
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem 0.75rem;
+  align-items: baseline;
+}
+
+.deflist--wide dd {
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- how to play */
+
+.steps {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.steps::marker,
+.steps li::marker {
+  color: var(--gold);
+}
+
 /* ---------------------------------------------------------------- gallery */
 
 .gallery {
   max-width: 60rem;
   margin: 0 auto;
   padding: calc(var(--safe-t) + 1rem) 1rem calc(var(--safe-b) + 2rem);
+}
+
+.gallery > .topbar {
+  margin-bottom: 1.25rem;
 }
 
 .gallery__head {

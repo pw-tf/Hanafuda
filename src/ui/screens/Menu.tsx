@@ -1,27 +1,30 @@
-import { DIFFICULTIES, DIFFICULTY_BLURB, DIFFICULTY_LABEL, type Difficulty } from '../../ai';
 import { CardFace } from '../../art/CardFace';
 import { CARD_IDS } from '../../engine/cards';
 import { Attribution } from './Gallery';
 
+/**
+ * The home screen: what you want to do, and nothing about how.
+ *
+ * The two ways to play are the only choices here — the settings that shape a
+ * game (which opponent, which device) live one level down, on the screen for
+ * the mode they belong to, so the first screen stays a short list of
+ * destinations rather than a form.
+ */
 export function Menu({
-  difficulty,
-  onDifficulty,
-  onPlayAi,
-  onPlayLocal,
-  onMultiplayer,
+  onSinglePlayer,
+  onTwoPlayer,
   onSettings,
   onGallery,
+  onHowToPlay,
   resumable,
   onResume,
   onDiscardSave,
 }: {
-  difficulty: Difficulty;
-  onDifficulty(next: Difficulty): void;
-  onPlayAi(): void;
-  onPlayLocal(): void;
-  onMultiplayer(): void;
+  onSinglePlayer(): void;
+  onTwoPlayer(): void;
   onSettings(): void;
   onGallery(): void;
+  onHowToPlay(): void;
   /** Description of a saved game in progress, if there is one. */
   resumable: string | null;
   onResume(): void;
@@ -55,34 +58,17 @@ export function Menu({
           </div>
         )}
 
-        <div className="menu__group">
-          <label className="menu__label" id="difficulty-label">
-            Opponent
-          </label>
-          <div className="segmented" role="group" aria-labelledby="difficulty-label">
-            {DIFFICULTIES.map((d) => (
-              <button
-                key={d}
-                type="button"
-                className={`segmented__btn ${difficulty === d ? 'is-on' : ''}`}
-                onClick={() => onDifficulty(d)}
-                aria-pressed={difficulty === d}
-              >
-                {DIFFICULTY_LABEL[d]}
-              </button>
-            ))}
-          </div>
-          <p className="menu__hint">{DIFFICULTY_BLURB[difficulty]}</p>
-        </div>
-
-        <button type="button" className="btn btn--primary btn--wide" onClick={onPlayAi}>
-          Play the computer
+        <button
+          type="button"
+          className="btn btn--primary btn--wide btn--stack"
+          onClick={onSinglePlayer}
+        >
+          Single player
+          <span className="btn__sub">Against the computer</span>
         </button>
-        <button type="button" className="btn btn--wide" onClick={onMultiplayer}>
-          Play a friend by room code
-        </button>
-        <button type="button" className="btn btn--wide" onClick={onPlayLocal}>
-          Pass and play
+        <button type="button" className="btn btn--wide btn--stack" onClick={onTwoPlayer}>
+          Two players
+          <span className="btn__sub">On this device, or online by room code</span>
         </button>
 
         <div className="menu__row">
@@ -93,6 +79,10 @@ export function Menu({
             Card deck
           </button>
         </div>
+
+        <button type="button" className="btn btn--ghost btn--wide" onClick={onHowToPlay}>
+          How to play
+        </button>
 
         <Attribution />
       </div>

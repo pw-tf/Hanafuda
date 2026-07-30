@@ -20,11 +20,21 @@ const RIBBON_LABEL: Record<string, string> = {
   blue: 'blue',
 };
 
-export function Gallery() {
+export function Gallery({ onBack }: { onBack(): void }) {
   const months = Array.from({ length: 12 }, (_, i) => (i + 1) as Month);
 
   return (
     <div className="gallery">
+      <header className="topbar">
+        <button type="button" className="topbar__back" onClick={onBack} aria-label="Back">
+          ‹
+        </button>
+        <div className="topbar__mid">
+          <strong>Card deck</strong>
+        </div>
+        <div className="topbar__score" />
+      </header>
+
       <header className="gallery__head">
         <h1>Hanafuda deck</h1>
         <p>

@@ -8,9 +8,12 @@ import { DEFAULT_RULES, type RuleConfig } from '../engine/rules';
 import { MAX_NAME_LENGTH, sanitizeName, type Strategy } from '../net/protocol';
 import { Game } from './screens/Game';
 import { Gallery } from './screens/Gallery';
+import { HowToPlay } from './screens/HowToPlay';
 import { Lobby } from './screens/Lobby';
 import { Menu } from './screens/Menu';
 import { Settings } from './screens/Settings';
+import { SinglePlayer } from './screens/SinglePlayer';
+import { TwoPlayer } from './screens/TwoPlayer';
 import { useHashRoute } from './useHashRoute';
 import type { SessionMode } from './useGameSession';
 
@@ -97,9 +100,44 @@ export function App() {
    */
   const backdrop = preferences.background ? <div className="appbg" aria-hidden="true" /> : null;
 
+  /** Starting a new game abandons whatever was saved — there is only one slot. */
+  const startFresh = useCallback(
+    (next: PlaySetup) => {
+      clearGame();
+      setSaved(null);
+      startPlay(next);
+    },
+    [startPlay],
+  );
+
   const screen = () => {
     if (route === 'gallery') {
-      return <Gallery />;
+      return <Gallery onBack={() => navigate('menu')} />;
+    }
+
+    if (route === 'howto') {
+      return <HowToPlay onBack={() => navigate('menu')} />;
+    }
+
+    if (route === 'solo') {
+      return (
+        <SinglePlayer
+          difficulty={difficulty}
+          onDifficulty={setDifficulty}
+          onStart={() => startFresh({ mode: 'ai' })}
+          onBack={() => navigate('menu')}
+        />
+      );
+    }
+
+    if (route === 'versus') {
+      return (
+        <TwoPlayer
+          onPassAndPlay={() => startFresh({ mode: 'local' })}
+          onOnline={() => navigate('multiplayer')}
+          onBack={() => navigate('menu')}
+        />
+      );
     }
 
     if (route === 'settings') {
@@ -130,7 +168,7 @@ export function App() {
           }}
           onHost={(code, strategy) => startPlay({ mode: 'host', roomCode: code, strategy })}
           onJoin={(code, strategy) => startPlay({ mode: 'guest', roomCode: code, strategy })}
-          onBack={() => navigate('menu')}
+          onBack={() => navigate('versus')}
         />
       );
     }
@@ -154,21 +192,11 @@ export function App() {
 
     return (
       <Menu
-        difficulty={difficulty}
-        onDifficulty={setDifficulty}
-        onPlayAi={() => {
-          clearGame();
-          setSaved(null);
-          startPlay({ mode: 'ai' });
-        }}
-        onPlayLocal={() => {
-          clearGame();
-          setSaved(null);
-          startPlay({ mode: 'local' });
-        }}
-        onMultiplayer={() => navigate('multiplayer')}
+        onSinglePlayer={() => navigate('solo')}
+        onTwoPlayer={() => navigate('versus')}
         onSettings={() => navigate('settings')}
         onGallery={() => navigate('gallery')}
+        onHowToPlay={() => navigate('howto')}
         resumable={saved ? describeSave(saved) : null}
         onResume={() => {
           if (!saved) return;

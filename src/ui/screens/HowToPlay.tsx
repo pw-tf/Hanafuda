@@ -24,8 +24,21 @@ import {
   type CardKind,
 } from '../../engine/cards';
 import { FIELD_SIZE, HAND_SIZE } from '../../engine/game';
-import { YAKU_INFO, type RuleConfig, type YakuId } from '../../engine/rules';
+import {
+  YAKU_INFO,
+  type KoiKoiMultiplierMode,
+  type RuleConfig,
+  type YakuId,
+} from '../../engine/rules';
+import { koiMultiplier } from '../../engine/scoring';
 import { plural } from '../text';
+
+/** How the active multiplier mode reads in a sentence. */
+const KOI_MULTIPLIER_NOTE: Record<KoiKoiMultiplierMode, string> = {
+  bga: '+1 for each koi-koi you called, then ×2 if your opponent called at all',
+  sum: '+1 to the multiplier for every call, by either player',
+  opponentDoubleOnly: '×2 if the losing player ever called it',
+};
 
 type Tab = 'basics' | 'yaku' | 'scoring';
 
@@ -155,7 +168,10 @@ function Basics({ rules }: { rules: RuleConfig }) {
             The remaining {DRAW_PILE} become the draw pile. If the field shows all four cards of one
             month, the whole deal is taken back and re-dealt.
           </li>
-          <li>The dealer leads, and the deal alternates every round.</li>
+          <li>
+            The dealer leads. Whoever wins a round deals the next one; a round nobody wins leaves
+            the deal where it is.
+          </li>
         </ol>
       </section>
 
@@ -239,8 +255,9 @@ function Basics({ rules }: { rules: RuleConfig }) {
             note="Four pairs — four months, two cards of each."
           />
           <p className="note">
-            Hand yaku are paid as dealt: no seven-point doubling, no koi-koi multiplier. Both
-            players can qualify, and each simply takes their own. Switch them off in Settings.
+            Hand yaku are paid as dealt: no seven-point doubling, no koi-koi multiplier. If both
+            players are dealt one the round is a draw — nobody scores, and the deal does not move.
+            Switch them off in Settings.
           </p>
         </section>
       )}
@@ -420,8 +437,6 @@ function Yaku({ rules }: { rules: RuleConfig }) {
 // ---------------------------------------------------------------- scoring
 
 function Scoring({ rules }: { rules: RuleConfig }) {
-  const koiSum = rules.koiKoiMultiplierMode === 'sum';
-
   return (
     <div role="tabpanel" id="panel-scoring" aria-labelledby="tab-scoring">
       <section className="card">
@@ -446,11 +461,7 @@ function Scoring({ rules }: { rules: RuleConfig }) {
           </div>
           <div>
             <dt>Koi-koi</dt>
-            <dd>
-              {koiSum
-                ? '+1 to the multiplier for every call, by either player'
-                : '×2 if the losing player ever called it'}
-            </dd>
+            <dd>{KOI_MULTIPLIER_NOTE[rules.koiKoiMultiplierMode]}</dd>
           </div>
         </dl>
         <p className="note">
@@ -489,7 +500,7 @@ function Scoring({ rules }: { rules: RuleConfig }) {
           </div>
           <div>
             <dt>
-              {koiSum
+              {exampleKoi(rules) > 1
                 ? `Your koi-koi, ×${exampleKoi(rules)}`
                 : 'Your own koi-koi does not multiply, ×1'}
             </dt>
@@ -512,13 +523,15 @@ function Scoring({ rules }: { rules: RuleConfig }) {
           <div>
             <dt>Both hands empty, nobody called</dt>
             <dd>
-              {rules.drawRule === 'dealer-6' ? 'The dealer takes 6' : 'Nobody scores the round'}
+              {rules.drawRule === 'dealer-1'
+                ? 'The dealer takes 1 — oya-ken, the dealer’s privilege'
+                : 'Nobody scores the round'}
             </dd>
           </div>
           {rules.teyakuEnabled && (
             <div>
               <dt>Hand yaku at the deal</dt>
-              <dd>Scored immediately and the round ends unplayed</dd>
+              <dd>Scored immediately and the round ends unplayed; both dealt one is a draw</dd>
             </div>
           )}
         </dl>
@@ -527,9 +540,10 @@ function Scoring({ rules }: { rules: RuleConfig }) {
       <section className="card">
         <h2>The match</h2>
         <p className="muted small">
-          {plural(rules.rounds, 'round')}, dealer alternating each time. Round scores add up and the
-          higher total takes the match. Everything on this screen — the point table, the optional
-          rules, the match length — is in Settings, and changes apply to the next game you start.
+          {plural(rules.rounds, 'round')}, the winner of each one dealing the next. Round scores add
+          up and the higher total takes the match. Everything on this screen — the point table, the
+          optional rules, the match length — is in Settings, and changes apply to the next game you
+          start.
         </p>
         <dl className="deflist">
           <div>
@@ -629,4 +643,10 @@ const countLabel = (base: number) => `${plural(base, 'pt')} +1 each extra`;
 const exampleBase = (rules: RuleConfig) => rules.points.inoShikaCho + rules.points.taneBase + 1;
 const exampleSeven = (rules: RuleConfig) =>
   exampleBase(rules) >= rules.sevenPointThreshold ? rules.sevenPointMultiplier : 1;
-const exampleKoi = (rules: RuleConfig) => (rules.koiKoiMultiplierMode === 'sum' ? 2 : 1);
+/**
+ * The example's one koi-koi, priced by the engine's own function rather than a
+ * transcription of it — a worked example that disagrees with the scorer is
+ * worse than no example.
+ */
+const exampleKoi = (rules: RuleConfig) =>
+  koiMultiplier({ byWinner: 1, byLoser: 0 }, rules.koiKoiMultiplierMode);

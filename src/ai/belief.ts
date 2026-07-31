@@ -2,9 +2,9 @@
  * What the AI thinks is in the opponent's hand, and how it samples worlds.
  *
  * Strictly honest. Nothing here reads `players[opponent].hand` or `state.seed`,
- * and `src/ai/__tests__/honesty.test.ts` holds that in place by asserting the
- * chosen move is unchanged when the hidden state is permuted behind identical
- * observations.
+ * and the `honesty` block in `src/ai/__tests__/ai.test.ts` holds that in place
+ * by asserting the chosen move is unchanged when the hidden state is permuted
+ * behind identical observations.
  *
  * Koi-Koi has no follow-suit, so there is never a *proof* that a player lacks a
  * month — every belief here is soft, and the sampler keeps every consistent

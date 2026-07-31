@@ -6,7 +6,7 @@
  * lives behind it in a sheet, via `CapturePile`.
  */
 
-import { getCard, type CardId, type CardKind } from '../../engine/cards';
+import { getCard, type CardId, type CardKind, type Month } from '../../engine/cards';
 import { CardBack, CardFace } from '../../art/CardFace';
 import type { RuleConfig } from '../../engine/rules';
 import { evaluateYaku } from '../../engine/yaku';
@@ -42,6 +42,7 @@ export function PileSummary({
   name,
   cards,
   rules,
+  month,
   koiKoiCalls,
   active,
   stack,
@@ -50,6 +51,8 @@ export function PileSummary({
   name: string;
   cards: readonly CardId[];
   rules: RuleConfig;
+  /** The round's month, so the optional Tsuki-fuda rule is counted. */
+  month: Month;
   koiKoiCalls: number;
   /** True when it is this player's turn. */
   active?: boolean;
@@ -62,7 +65,7 @@ export function PileSummary({
   onOpen(): void;
 }) {
   const groups = countByKind(cards);
-  const { base } = evaluateYaku(cards, rules);
+  const { base } = evaluateYaku(cards, rules, month);
 
   return (
     <button

@@ -196,9 +196,9 @@ describe('playing the scoreboard', () => {
       current: 0,
       round: STANDARD_RULES.rounds,
       scores,
-      // Hands stay the same length: the deal alternates, so a position with
-      // uneven hands is unreachable, and a playout entering one finds a `play`
-      // phase with nothing to play.
+      // Hands stay the same length: turns alternate, so a position with uneven
+      // hands is unreachable, and a playout entering one finds a `play` phase
+      // with nothing to play.
       // Nothing in hand captures anything: no upside beyond what is banked.
       hand0: ['m10-2', 'm10-3'] as CardId[],
       // Either July card takes the Boar and completes their fifth Tane.

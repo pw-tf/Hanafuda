@@ -10,6 +10,7 @@
 
 import type { PlayerIndex, RoundResult } from '../../engine/game';
 import { YAKU_INFO, type RuleConfig } from '../../engine/rules';
+import type { RoundSettlement } from '../../engine/scoring';
 import { CardFace } from '../../art/CardFace';
 import { plural } from '../text';
 import { Sheet } from './Sheet';
@@ -38,6 +39,9 @@ export function RoundBreakdown({
   const { settlement, yaku } = result;
 
   if (result.reason === 'teyaku') {
+    // Both players dealt a hand yaku is a draw, so the points beside each hand
+    // would be points nobody actually took. Say so rather than showing them.
+    const drawn = result.winner === null;
     return (
       <div className="sheet__body">
         {([0, 1] as const).map((seat) =>
@@ -49,21 +53,34 @@ export function RoundBreakdown({
                   <span>
                     {YAKU_INFO[y.id].name} <em>{YAKU_INFO[y.id].nameJa}</em>
                   </span>
-                  <b>{y.points}</b>
+                  <b>{drawn ? '—' : y.points}</b>
                 </div>
               ))}
             </div>
           ),
+        )}
+        {drawn && (
+          <p className="sheet__none">
+            Both players were dealt a hand yaku, so the round is a draw and the deal does not
+            move.
+          </p>
         )}
       </div>
     );
   }
 
   if (yaku.length === 0) {
+    // `exhausted` with the dealer's privilege on still pays the dealer, so the
+    // flat "nobody scores" line is only true when it did not apply.
+    const oyaKen = rules.drawRule === 'dealer-1' && result.winner !== null;
     return (
       <p className="sheet__none">
-        Neither player called the round, so nobody scores.
-        {rules.drawRule === 'dealer-6' && ' (Dealer bonus is enabled but did not apply.)'}
+        {oyaKen
+          ? `Neither player called the round. ${names[result.winner as PlayerIndex]} dealt, so they take ${plural(
+              result.awarded[result.winner as PlayerIndex],
+              'point',
+            )}.`
+          : 'Neither player called the round, so nobody scores.'}
       </p>
     );
   }
@@ -136,7 +153,9 @@ export function RoundEnd({
   // points" is what one line for both gets you.
   const headline =
     winner === null
-      ? 'No score'
+      ? result.reason === 'teyaku'
+        ? 'A draw'
+        : 'No score'
       : winner === youSeat
         ? `You score ${plural(awarded[winner], 'point')}`
         : `${names[winner]} scores ${plural(awarded[winner], 'point')}`;
@@ -170,26 +189,46 @@ export function RoundEnd({
   );
 }
 
-/** The koi-koi / shobu decision. */
+/**
+ * The koi-koi / shobu decision.
+ *
+ * The number on the Stop button is the settled total, not the raw yaku base.
+ * They are not the same once the seven-point doubling or a koi-koi multiplier
+ * is in play — a base of 8 after one koi-koi banks 32 — and this is the one
+ * decision in the game that turns entirely on how big that number is. The
+ * arithmetic is shown underneath so the total is checkable rather than magic.
+ */
 export function KoiKoiPrompt({
-  base,
+  settlement,
+  rules,
   onKoiKoi,
   onShobu,
 }: {
-  base: number;
+  settlement: RoundSettlement;
+  rules: RuleConfig;
   onKoiKoi(): void;
   onShobu(): void;
 }) {
+  const { base, sevenPointMultiplier, koiMultiplier, total } = settlement;
+  const multiplied = total !== base;
+
   return (
     <Sheet label="Koi-Koi or stop" dismissible={false} className="sheet__inner--tight">
-      <h2>You have {plural(base, 'point')}</h2>
+      <h2>Stopping banks {plural(total, 'point')}</h2>
+      {multiplied && (
+        <p className="sheet__explain sheet__explain--maths">
+          {plural(base, 'point')} of yaku
+          {sevenPointMultiplier > 1 && ` × ${sevenPointMultiplier} (${rules.sevenPointThreshold}+)`}
+          {koiMultiplier > 1 && ` × ${koiMultiplier} (koi-koi)`}
+        </p>
+      )}
       <p className="sheet__explain">
-        Stop now and bank them, or call Koi-Koi to keep playing for more — the multiplier
-        rises, but your opponent can still take the round.
+        Stop now and bank that, or call Koi-Koi to keep playing for more — the multiplier rises,
+        but your opponent can still take the round and leave you with nothing.
       </p>
       <div className="sheet__choices">
         <button type="button" className="btn btn--ghost btn--wide" onClick={onShobu}>
-          Stop · take {base}
+          Stop · take {total}
         </button>
         <button type="button" className="btn btn--primary btn--wide" onClick={onKoiKoi}>
           Koi-Koi!

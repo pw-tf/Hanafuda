@@ -185,6 +185,7 @@ function dealRound(seed: number, round: number, dealer: PlayerIndex, rules: Rule
 
   // Re-deal until the field is legal. Each attempt mixes into the seed so the
   // deal stays a pure function of (seed, round).
+  let legal = false;
   for (let attempt = 0; attempt < 100; attempt++) {
     const rng = createRng((seed ^ (round * 0x9e3779b1) ^ (attempt * 0x85ebca6b)) >>> 0);
     const shuffled = shuffle(ALL_CARD_IDS, rng);
@@ -194,7 +195,16 @@ function dealRound(seed: number, round: number, dealer: PlayerIndex, rules: Rule
     field = shuffled.slice(HAND_SIZE * 2, HAND_SIZE * 2 + FIELD_SIZE);
     deck = shuffled.slice(HAND_SIZE * 2 + FIELD_SIZE);
 
-    if (!fieldNeedsRedeal(field)) break;
+    if (!fieldNeedsRedeal(field)) {
+      legal = true;
+      break;
+    }
+  }
+  // A four-of-a-month field has about a 1-in-380 chance, so a hundred failures
+  // in a row is not luck — it is a broken deck or a broken shuffle. Better to
+  // say so than to quietly deal a field the rules forbid.
+  if (!legal) {
+    throw new Error(`Could not deal a legal field for round ${round} after 100 attempts`);
   }
 
   const makePlayer = (i: number): PlayerState => ({
@@ -225,11 +235,16 @@ function dealRound(seed: number, round: number, dealer: PlayerIndex, rules: Rule
   ];
 
   if (teyaku[0].length > 0 || teyaku[1].length > 0) {
-    const points = (list: ScoredYaku[]): number => list.reduce((s, y) => s + y.points, 0);
-    const awarded: [number, number] = [points(teyaku[0]), points(teyaku[1])];
-    // Both players can qualify; each simply takes their own hand yaku.
-    const winner: PlayerIndex | null =
-      awarded[0] > awarded[1] ? 0 : awarded[1] > awarded[0] ? 1 : null;
+    // A hand yaku is an instant win, not a score both players can collect. When
+    // both are dealt one the round is a draw: nobody scores, and the deal does
+    // not move.
+    const both = teyaku[0].length > 0 && teyaku[1].length > 0;
+    const winner: PlayerIndex | null = both ? null : teyaku[0].length > 0 ? 0 : 1;
+
+    const awarded: [number, number] = [0, 0];
+    if (winner !== null) {
+      awarded[winner] = teyaku[winner].reduce((s, y) => s + y.points, 0);
+    }
 
     return {
       ...base,
@@ -381,8 +396,12 @@ function endWithoutYaku(state: GameState, round: RoundState): RoundState {
   const awarded: [number, number] = [0, 0];
   let winner: PlayerIndex | null = null;
 
-  if (state.rules.drawRule === 'dealer-6') {
-    awarded[round.dealer] = 6;
+  // Oya-ken, the dealer's privilege. Naming the dealer as the winner is also
+  // what keeps the deal with them next round, which is the other half of the
+  // same rule — and it is what `no-score` does anyway, by falling back to the
+  // current dealer.
+  if (state.rules.drawRule === 'dealer-1') {
+    awarded[round.dealer] = 1;
     winner = round.dealer;
   }
 
@@ -571,13 +590,17 @@ export function applyMove(state: GameState, move: Move): GameState {
         return { ...state, scores, history, matchOver: true };
       }
 
+      // The winner of a round takes the deal. A round nobody won — hands
+      // exhausted with no yaku, or both players dealt a hand yaku — leaves it
+      // where it is, which is the dealer's privilege, oya-ken.
+      const nextDealer: PlayerIndex = result.winner ?? round.dealer;
+
       return {
         ...state,
         round: nextRoundNumber,
         scores,
         history,
-        // The deal alternates every round.
-        roundState: dealRound(state.seed, nextRoundNumber, other(round.dealer), state.rules),
+        roundState: dealRound(state.seed, nextRoundNumber, nextDealer, state.rules),
       };
     }
   }

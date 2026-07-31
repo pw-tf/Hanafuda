@@ -16,7 +16,7 @@ app icon; the manifest is already set up for it.
 ```sh
 npm install
 npm run dev      # http://localhost:5173
-npm test         # 196 tests
+npm test         # 201 tests
 npm run build    # typecheck + production build
 ```
 
@@ -134,7 +134,7 @@ All are toggleable in Settings.
 | Sake cup counts as | Animal only | Or animal **and** chaff, affecting the Kasu count |
 | Tsuki-fuda (month cards) | **off** | 4 points for all four cards of the round's month. Off by default — the value is a house rule with weak sourcing |
 | Koi-koi multiplier | Standard | Or the `sum` / `opponentDoubleOnly` simplifications above |
-| Match length | 12 rounds | The winner of each round deals the next |
+| Match length | 12 rounds | First dealer drawn at random; after that the winner of each round deals the next |
 | Nobody scores | No score | Or oya-ken: the dealer takes 1 |
 
 The in-game **How to play** screen documents all of the above — the turn, the
@@ -320,7 +320,7 @@ read aloud round-trips reliably.
 
 ## Testing
 
-`npm test` — 196 tests, ~25 s. `npm run bench:ai` measures AI strength; it takes minutes and is deliberately not part of the suite.
+`npm test` — 201 tests, ~25 s. `npm run bench:ai` measures AI strength; it takes minutes and is deliberately not part of the suite.
 
 - **Deck structure** — all invariants listed above.
 - **Yaku truth table** — every yaku at its threshold and one below; brights

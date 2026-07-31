@@ -169,8 +169,8 @@ function Basics({ rules }: { rules: RuleConfig }) {
             month, the whole deal is taken back and re-dealt.
           </li>
           <li>
-            The dealer leads. Whoever wins a round deals the next one; a round nobody wins leaves
-            the deal where it is.
+            The dealer leads. Who deals the first round is drawn at random; after that whoever wins
+            a round deals the next one, and a round nobody wins leaves the deal where it is.
           </li>
         </ol>
       </section>

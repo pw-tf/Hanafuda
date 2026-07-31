@@ -106,7 +106,9 @@ export function useGameSession(config: SessionConfig): Session {
 
   const [state, setState] = useState<GameState | null>(() => {
     if (resume) return resume;
-    return mode === 'guest' ? null : createGame(rules, initialSeed, 0);
+    // No dealer argument: who deals first is drawn from the seed, so it is not
+    // always this device.
+    return mode === 'guest' ? null : createGame(rules, initialSeed);
   });
   const [connection, setConnection] = useState<ConnectionStatus>(isNetwork ? 'connecting' : 'idle');
   const [connectionDetail, setConnectionDetail] = useState<string | null>(null);
@@ -418,7 +420,7 @@ export function useGameSession(config: SessionConfig): Session {
   const restart = useCallback(() => {
     if (mode === 'guest') return;
     clearGame();
-    commit(createGame(rules, randomSeed(), 0));
+    commit(createGame(rules, randomSeed()));
   }, [mode, rules, commit]);
 
   const canAct = (() => {

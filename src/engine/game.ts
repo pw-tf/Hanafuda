@@ -264,7 +264,28 @@ function dealRound(seed: number, round: number, dealer: PlayerIndex, rules: Rule
   return base;
 }
 
-export function createGame(rules: RuleConfig, seed: number, firstDealer: PlayerIndex = 0): GameState {
+/**
+ * Who deals the first round of a match, at random.
+ *
+ * The rules settle this with a draw or a cut, and it matters: the dealer leads,
+ * and after the first round the deal follows the winner rather than alternating
+ * — so a fixed first dealer hands one seat the opening lead of every match, and
+ * in an odd-length match one extra deal outright.
+ *
+ * Drawn from the seed rather than `Math.random` so a match stays a pure function
+ * of its seed. That keeps the deal replayable from a saved seed, and in a room
+ * game it stays something the guest could verify rather than something only the
+ * host knows. The seed itself is random, so the dealer is too.
+ */
+export function dealerFromSeed(seed: number): PlayerIndex {
+  return createRng(seed ^ 0x2545f491).nextInt(2) === 0 ? 0 : 1;
+}
+
+export function createGame(
+  rules: RuleConfig,
+  seed: number,
+  firstDealer: PlayerIndex = dealerFromSeed(seed),
+): GameState {
   return {
     rules,
     seed,

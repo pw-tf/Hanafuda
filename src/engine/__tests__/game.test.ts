@@ -6,6 +6,7 @@ import {
   applyMove,
   createGame,
   currentYaku,
+  dealerFromSeed,
   legalMoves,
   matchesFor,
   other,
@@ -487,6 +488,48 @@ describe('dealing', () => {
 
   it('starts the dealer on lead', () => {
     expect(createGame(STANDARD_RULES, 42, 1).roundState.current).toBe(1);
+    expect(createGame(STANDARD_RULES, 42, 0).roundState.current).toBe(0);
+  });
+
+  describe('the first dealer', () => {
+    it('is drawn from the seed rather than always seat 0', () => {
+      const seats = new Set<PlayerIndex>();
+      for (let seed = 0; seed < 200; seed++) seats.add(dealerFromSeed(seed));
+      expect([...seats].sort()).toEqual([0, 1]);
+    });
+
+    it('is close to an even split', () => {
+      let ones = 0;
+      for (let seed = 0; seed < 20000; seed++) ones += dealerFromSeed(seed);
+      // Well inside the ~1.4% that a fair coin over 20,000 draws would wander.
+      expect(Math.abs(ones / 20000 - 0.5)).toBeLessThan(0.03);
+    });
+
+    it('is what createGame uses when no dealer is named', () => {
+      for (let seed = 0; seed < 50; seed++) {
+        expect(createGame(STANDARD_RULES, seed).roundState.dealer, `seed ${seed}`).toBe(
+          dealerFromSeed(seed),
+        );
+      }
+    });
+
+    it('is stable for a seed, so a match stays replayable', () => {
+      expect(dealerFromSeed(9001)).toBe(dealerFromSeed(9001));
+      expect(createGame(STANDARD_RULES, 9001).roundState).toEqual(
+        createGame(STANDARD_RULES, 9001).roundState,
+      );
+    });
+
+    it('does not change the cards dealt', () => {
+      // Only who leads. Both peers in a room game deal the same 48 cards
+      // whichever way the draw went.
+      const a = createGame(STANDARD_RULES, 555, 0).roundState;
+      const b = createGame(STANDARD_RULES, 555, 1).roundState;
+      expect(b.field).toEqual(a.field);
+      expect(b.deck).toEqual(a.deck);
+      expect(b.players[0].hand).toEqual(a.players[0].hand);
+      expect(b.players[1].hand).toEqual(a.players[1].hand);
+    });
   });
 
   it('ends the round immediately on a hand yaku, paying only its holder', () => {

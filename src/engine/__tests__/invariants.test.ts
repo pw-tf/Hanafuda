@@ -123,7 +123,8 @@ describe('engine invariants under random play', () => {
       { ...STANDARD_RULES, sakeCupMode: 'tane-and-kasu' },
       { ...STANDARD_RULES, tsukiFudaEnabled: true },
       { ...STANDARD_RULES, teyakuEnabled: false },
-      { ...STANDARD_RULES, drawRule: 'dealer-6' },
+      { ...STANDARD_RULES, drawRule: 'dealer-1' },
+      { ...STANDARD_RULES, koiKoiMultiplierMode: 'sum' },
       { ...STANDARD_RULES, koiKoiMultiplierMode: 'opponentDoubleOnly' },
     ];
 
@@ -132,7 +133,7 @@ describe('engine invariants under random play', () => {
         playRandomMatch(seed, rules);
       }
     }
-    expect(variants).toHaveLength(6);
+    expect(variants).toHaveLength(7);
   }, 120_000);
 
   it('never mutates the state passed to applyMove', () => {

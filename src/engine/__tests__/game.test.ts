@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { CARD_IDS, DECK, idsOfMonth, type CardId } from '../cards';
 import { STANDARD_RULES, type RuleConfig } from '../rules';
+import { settleRound } from '../scoring';
 import {
   applyMove,
   createGame,
+  currentYaku,
+  dealerFromSeed,
   legalMoves,
   matchesFor,
   other,
@@ -371,6 +374,47 @@ describe('koi-koi and shobu', () => {
     expect(settlement?.total).toBe(32);
   });
 
+  /**
+   * The number the koi-koi prompt has to show.
+   *
+   * `Game.tsx` prices the Stop button by settling the current base itself, so
+   * that it can say what stopping actually banks rather than the raw yaku
+   * total. This pins the two together: whatever that arithmetic produces at the
+   * decision must be exactly what shobu then awards.
+   */
+  it('pays exactly what settling the position at the decision predicts', () => {
+    const s0 = makeState({
+      hand0: [CARD_IDS.PHOENIX],
+      hand1: [monthIds(9)[0]!, monthIds(9)[1]!],
+      field: [monthIds(12)[1]!],
+      deck: [monthIds(6)[2]!],
+      captured0: [CARD_IDS.CRANE, CARD_IDS.CURTAIN, CARD_IDS.MOON],
+      koi0: 1,
+      koi1: 1,
+      baseAtCheck0: 5,
+    });
+    const atChoice = applyMove(applyMove(s0, { type: 'play', card: CARD_IDS.PHOENIX }), {
+      type: 'draw',
+    });
+    expect(atChoice.roundState.phase).toBe('koikoi');
+
+    const predicted = settleRound(
+      currentYaku(atChoice, 0).base,
+      {
+        byWinner: atChoice.roundState.players[0].koiKoiCalls,
+        byLoser: atChoice.roundState.players[1].koiKoiCalls,
+      },
+      atChoice.rules,
+    );
+    // Shiko 8, x2 for reaching seven, then (1 + one call of mine) x 2 for
+    // theirs: 8 x 2 x 4 = 64. Emphatically not the raw base of 8.
+    expect(predicted.total).toBe(64);
+
+    const settled = applyMove(atChoice, { type: 'shobu' });
+    expect(settled.roundState.result?.settlement).toEqual(predicted);
+    expect(settled.roundState.result?.awarded).toEqual([64, 0]);
+  });
+
   it('settles automatically instead of prompting when both hands are empty', () => {
     const s0 = makeState({
       hand0: [CARD_IDS.MOON],
@@ -398,8 +442,8 @@ describe('round ending without a yaku', () => {
     expect(s.roundState.result?.winner).toBeNull();
   });
 
-  it('awards the dealer 6 under the dealer-6 rule', () => {
-    const rules: RuleConfig = { ...STANDARD_RULES, drawRule: 'dealer-6' };
+  it('awards the dealer 1 under the oya-ken rule', () => {
+    const rules: RuleConfig = { ...STANDARD_RULES, drawRule: 'dealer-1' };
     const s0 = makeState({
       hand0: [monthIds(1)[0]!],
       hand1: [],
@@ -409,7 +453,9 @@ describe('round ending without a yaku', () => {
     });
     const s = applyMove(applyMove(s0, { type: 'play', card: monthIds(1)[0]! }), { type: 'draw' });
 
-    expect(s.roundState.result?.awarded).toEqual([0, 6]);
+    expect(s.roundState.result?.awarded).toEqual([0, 1]);
+    // Naming the dealer is what keeps the deal with them, which is the other
+    // half of oya-ken.
     expect(s.roundState.result?.winner).toBe(1);
   });
 });
@@ -442,41 +488,154 @@ describe('dealing', () => {
 
   it('starts the dealer on lead', () => {
     expect(createGame(STANDARD_RULES, 42, 1).roundState.current).toBe(1);
+    expect(createGame(STANDARD_RULES, 42, 0).roundState.current).toBe(0);
   });
 
-  it('ends the round immediately on a hand yaku', () => {
-    // Search seeds for a natural teyaku deal rather than fabricating one.
-    let found = 0;
-    for (let seed = 0; seed < 20000 && found < 3; seed++) {
-      const g = createGame(STANDARD_RULES, seed);
-      if (g.roundState.result?.reason === 'teyaku') {
-        found++;
-        expect(g.roundState.phase).toBe('round-end');
-        const awarded = g.roundState.result.awarded;
-        expect(awarded[0] + awarded[1]).toBeGreaterThan(0);
+  describe('the first dealer', () => {
+    it('is drawn from the seed rather than always seat 0', () => {
+      const seats = new Set<PlayerIndex>();
+      for (let seed = 0; seed < 200; seed++) seats.add(dealerFromSeed(seed));
+      expect([...seats].sort()).toEqual([0, 1]);
+    });
+
+    it('is close to an even split', () => {
+      let ones = 0;
+      for (let seed = 0; seed < 20000; seed++) ones += dealerFromSeed(seed);
+      // Well inside the ~1.4% that a fair coin over 20,000 draws would wander.
+      expect(Math.abs(ones / 20000 - 0.5)).toBeLessThan(0.03);
+    });
+
+    it('is what createGame uses when no dealer is named', () => {
+      for (let seed = 0; seed < 50; seed++) {
+        expect(createGame(STANDARD_RULES, seed).roundState.dealer, `seed ${seed}`).toBe(
+          dealerFromSeed(seed),
+        );
       }
+    });
+
+    it('is stable for a seed, so a match stays replayable', () => {
+      expect(dealerFromSeed(9001)).toBe(dealerFromSeed(9001));
+      expect(createGame(STANDARD_RULES, 9001).roundState).toEqual(
+        createGame(STANDARD_RULES, 9001).roundState,
+      );
+    });
+
+    it('does not change the cards dealt', () => {
+      // Only who leads. Both peers in a room game deal the same 48 cards
+      // whichever way the draw went.
+      const a = createGame(STANDARD_RULES, 555, 0).roundState;
+      const b = createGame(STANDARD_RULES, 555, 1).roundState;
+      expect(b.field).toEqual(a.field);
+      expect(b.deck).toEqual(a.deck);
+      expect(b.players[0].hand).toEqual(a.players[0].hand);
+      expect(b.players[1].hand).toEqual(a.players[1].hand);
+    });
+  });
+
+  it('ends the round immediately on a hand yaku, paying only its holder', () => {
+    // Seed 41 deals player 0 a Teshi and player 1 nothing.
+    const g = createGame(STANDARD_RULES, 41);
+    expect(g.roundState.phase).toBe('round-end');
+    expect(g.roundState.result?.reason).toBe('teyaku');
+    expect(g.roundState.result?.winner).toBe(0);
+    expect(g.roundState.result?.awarded).toEqual([STANDARD_RULES.points.teshi, 0]);
+  });
+
+  it('treats a hand yaku on both sides as a draw', () => {
+    // Seed 31956 deals both players a Teshi — about 1 deal in 24,000.
+    const g = createGame(STANDARD_RULES, 31956);
+    const result = g.roundState.result;
+
+    expect(result?.reason).toBe('teyaku');
+    expect(result?.teyaku[0].map((y) => y.id)).toEqual(['teshi']);
+    expect(result?.teyaku[1].map((y) => y.id)).toEqual(['teshi']);
+    // Neither player takes the round, so neither is paid.
+    expect(result?.awarded).toEqual([0, 0]);
+    expect(result?.winner).toBeNull();
+    expect(result?.yaku).toEqual([]);
+  });
+
+  it('leaves the deal with the dealer after a hand-yaku draw', () => {
+    const rules: RuleConfig = { ...STANDARD_RULES, rounds: 2 };
+    const g = applyMove(createGame(rules, 31956, 1), { type: 'nextRound' });
+
+    expect(g.scores).toEqual([0, 0]);
+    expect(g.roundState.dealer).toBe(1);
+  });
+
+  it('never pays both players for a hand yaku', () => {
+    // The invariant behind the two cases above, over every teyaku deal in a
+    // wide seed range: a hand yaku is an instant win, so at most one side is
+    // ever paid, and an unwon round pays nobody.
+    let found = 0;
+    for (let seed = 0; seed < 20000; seed++) {
+      const result = createGame(STANDARD_RULES, seed).roundState.result;
+      if (result?.reason !== 'teyaku') continue;
+      found++;
+      const [a, b] = result.awarded;
+      expect(a === 0 || b === 0, `seed ${seed}`).toBe(true);
+      if (result.winner === null) expect(result.awarded, `seed ${seed}`).toEqual([0, 0]);
+      else expect(result.awarded[result.winner], `seed ${seed}`).toBeGreaterThan(0);
     }
-    expect(found, 'expected at least one teyaku deal in 20000 seeds').toBeGreaterThan(0);
+    expect(found, 'expected teyaku deals in 20000 seeds').toBeGreaterThan(0);
   });
 });
 
 describe('match structure', () => {
-  it('alternates the dealer each round and ends after the configured rounds', () => {
-    const rules: RuleConfig = { ...STANDARD_RULES, rounds: 3, teyakuEnabled: false };
+  /** End the current round with a given result, so the match can advance. */
+  function forceEnd(g: GameState, winner: PlayerIndex | null): GameState {
+    const awarded: [number, number] = [0, 0];
+    if (winner !== null) awarded[winner] = 5;
+    return {
+      ...g,
+      roundState: {
+        ...g.roundState,
+        phase: 'round-end',
+        result: {
+          round: g.round,
+          reason: winner === null ? 'exhausted' : 'shobu',
+          awarded,
+          winner,
+          settlement: null,
+          yaku: [],
+          teyaku: [[], []],
+        },
+      },
+    };
+  }
+
+  it('gives the deal to the winner of each round', () => {
+    const rules: RuleConfig = { ...STANDARD_RULES, rounds: 4, teyakuEnabled: false };
     let g = createGame(rules, 99, 0);
     const dealers: PlayerIndex[] = [];
 
-    for (let i = 0; i < 3; i++) {
+    // Player 1 wins rounds 1 and 2, player 0 wins round 3.
+    for (const winner of [1, 1, 0] as const) {
       dealers.push(g.roundState.dealer);
-      // Force the round to end so the match can advance.
-      g = { ...g, roundState: { ...g.roundState, phase: 'round-end', result: {
-        round: g.round, reason: 'exhausted', awarded: [0, 0], winner: null,
-        settlement: null, yaku: [], teyaku: [[], []],
-      } } };
-      g = applyMove(g, { type: 'nextRound' });
+      g = applyMove(forceEnd(g, winner), { type: 'nextRound' });
     }
+    dealers.push(g.roundState.dealer);
 
-    expect(dealers).toEqual([0, 1, 0]);
+    expect(dealers).toEqual([0, 1, 1, 0]);
+  });
+
+  it('leaves the deal where it is after a round nobody won', () => {
+    const rules: RuleConfig = { ...STANDARD_RULES, rounds: 3, teyakuEnabled: false };
+    let g = createGame(rules, 99, 1);
+
+    expect(g.roundState.dealer).toBe(1);
+    g = applyMove(forceEnd(g, null), { type: 'nextRound' });
+    expect(g.roundState.dealer).toBe(1);
+    g = applyMove(forceEnd(g, null), { type: 'nextRound' });
+    expect(g.roundState.dealer).toBe(1);
+  });
+
+  it('ends after the configured rounds', () => {
+    const rules: RuleConfig = { ...STANDARD_RULES, rounds: 3, teyakuEnabled: false };
+    let g = createGame(rules, 99, 0);
+
+    for (let i = 0; i < 3; i++) g = applyMove(forceEnd(g, null), { type: 'nextRound' });
+
     expect(g.matchOver).toBe(true);
     expect(legalMoves(g)).toEqual([]);
     expect(() => applyMove(g, { type: 'nextRound' })).toThrow(IllegalMoveError);

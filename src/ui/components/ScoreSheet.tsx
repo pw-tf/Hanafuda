@@ -11,8 +11,29 @@
  */
 
 import { CARD_IDS, DECK, type CardId } from '../../engine/cards';
-import { YAKU_INFO, type RuleConfig, type YakuId } from '../../engine/rules';
+import {
+  YAKU_INFO,
+  type KoiKoiMultiplierMode,
+  type RuleConfig,
+  type YakuId,
+} from '../../engine/rules';
 import { CardFace } from '../../art/CardFace';
+
+/** One line per multiplier mode, so the guide states the rule actually in force. */
+const KOI_MULTIPLIER_TEXT: Record<KoiKoiMultiplierMode, { short: string; long: string }> = {
+  bga: {
+    short: '+1 yours, ×2 theirs',
+    long: 'Each koi-koi you call adds one to your multiplier. A koi-koi from your opponent doubles what you score — once, however often they called it.',
+  },
+  sum: {
+    short: '+1 each',
+    long: 'Every koi-koi called this round, by either player, adds one.',
+  },
+  opponentDoubleOnly: {
+    short: '×2',
+    long: 'Doubles only if your opponent called koi-koi. Your own calls do not multiply.',
+  },
+};
 
 const byKind = (kind: string): CardId[] => DECK.filter((c) => c.kind === kind).map((c) => c.id);
 const byRibbon = (ribbon: string): CardId[] =>
@@ -178,15 +199,9 @@ export function ScoreSheet({ rules }: { rules: RuleConfig }) {
           <li>
             <div className="score__head">
               <span className="score__name">Koi-Koi</span>
-              <b className="score__pts">
-                {rules.koiKoiMultiplierMode === 'sum' ? '+1 each' : '×2'}
-              </b>
+              <b className="score__pts">{KOI_MULTIPLIER_TEXT[rules.koiKoiMultiplierMode].short}</b>
             </div>
-            <p className="score__desc">
-              {rules.koiKoiMultiplierMode === 'sum'
-                ? 'Every koi-koi called this round, by either player, adds one.'
-                : 'Doubles only if your opponent called koi-koi.'}
-            </p>
+            <p className="score__desc">{KOI_MULTIPLIER_TEXT[rules.koiKoiMultiplierMode].long}</p>
           </li>
         </ul>
         <p className="score__formula">

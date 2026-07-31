@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CardId } from '../../engine/cards';
 import { MONTH_NAMES } from '../../engine/cards';
-import { currentYaku, matchesFor, type PlayerIndex } from '../../engine/game';
+import { currentYaku, matchesFor, other, type PlayerIndex } from '../../engine/game';
 import type { RuleConfig } from '../../engine/rules';
+import { settleRound } from '../../engine/scoring';
 import { Board } from '../components/Board';
 import { CardInfo } from '../components/CardInfo';
 import { Connecting } from '../components/Connecting';
@@ -149,6 +150,22 @@ export function Game({ names: defaultNames, onExit, ...config }: GameScreenProps
   // inside the field, where it grew the box and produced a scrollbar.
   const selectedHasMatch = selected !== null && matchesFor(selected, round.field).length > 0;
 
+  /**
+   * What calling shobu right now would actually pay.
+   *
+   * Settled with the same `settleRound` the engine uses, from the same
+   * inputs, so the number on the prompt cannot drift from the number the
+   * round-end sheet then awards.
+   */
+  const stoppingPays = settleRound(
+    myYaku.base,
+    {
+      byWinner: round.players[seat].koiKoiCalls,
+      byLoser: round.players[other(seat)].koiKoiCalls,
+    },
+    state.rules,
+  );
+
   const showKoiKoi = round.phase === 'koikoi' && round.current === seat && session.canAct;
   const theirTurn = round.phase !== 'round-end' && round.current !== seat;
 
@@ -208,6 +225,7 @@ export function Game({ names: defaultNames, onExit, ...config }: GameScreenProps
         name={names[opponent]}
         cards={round.players[opponent].captured}
         rules={state.rules}
+        month={round.month}
         koiKoiCalls={round.players[opponent].koiKoiCalls}
         active={theirTurn}
         stack={{ count: round.players[opponent].hand.length, label: 'Cards in hand' }}
@@ -241,6 +259,7 @@ export function Game({ names: defaultNames, onExit, ...config }: GameScreenProps
         name={names[seat]}
         cards={round.players[seat].captured}
         rules={state.rules}
+        month={round.month}
         koiKoiCalls={round.players[seat].koiKoiCalls}
         active={!theirTurn && round.phase !== 'round-end'}
         stack={{ count: round.deck.length, label: 'Cards left in the deck' }}
@@ -278,7 +297,8 @@ export function Game({ names: defaultNames, onExit, ...config }: GameScreenProps
 
       {showKoiKoi && (
         <KoiKoiPrompt
-          base={myYaku.base}
+          settlement={stoppingPays}
+          rules={state.rules}
           onKoiKoi={() => session.submit({ type: 'koikoi' })}
           onShobu={() => session.submit({ type: 'shobu' })}
         />
@@ -369,6 +389,7 @@ export function Game({ names: defaultNames, onExit, ...config }: GameScreenProps
           <YakuPanel
             captured={round.players[openPile].captured}
             rules={state.rules}
+            month={round.month}
             title="Yaku progress"
           />
           <button

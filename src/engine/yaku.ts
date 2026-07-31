@@ -191,10 +191,12 @@ export function evaluateTeyaku(hand: readonly CardId[], rules: RuleConfig): Scor
 
   const result: ScoredYaku[] = [];
 
-  for (const [, ids] of byMonth) {
-    if (ids.length === 4) {
-      result.push({ id: 'teshi', points: rules.points.teshi, cards: ids });
-    }
+  // Teshi scores once. A dealt hand can hold two whole months, and scoring one
+  // teshi per month paid that hand double — teyaku is a flat instant win, not a
+  // per-combination total.
+  const fourOfAMonth = [...byMonth.values()].find((ids) => ids.length === 4);
+  if (fourOfAMonth) {
+    result.push({ id: 'teshi', points: rules.points.teshi, cards: fourOfAMonth });
   }
 
   // Kuttsuki needs the hand to be exactly four pairs — four months, two of each.
@@ -224,14 +226,10 @@ export function yakuForCard(id: CardId, rules: RuleConfig): YakuId[] {
   const out: YakuId[] = [];
 
   if (card.kind === 'hikari') {
-    out.push('goko');
-    if (id === CARD_IDS.RAIN_MAN) {
-      // The Rain Man makes four brights Ame-Shiko, and never counts for
-      // Shiko or Sanko.
-      out.push('ame-shiko');
-    } else {
-      out.push('shiko', 'sanko');
-    }
+    // Ame-Shiko is the Rain Man plus any three of the others, so every bright is
+    // a candidate for it. Only Shiko and Sanko exclude the Rain Man.
+    out.push('goko', 'ame-shiko');
+    if (id !== CARD_IDS.RAIN_MAN) out.push('shiko', 'sanko');
   }
 
   if (id === CARD_IDS.BOAR || id === CARD_IDS.DEER || id === CARD_IDS.BUTTERFLIES) {

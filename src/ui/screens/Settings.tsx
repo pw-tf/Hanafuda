@@ -156,7 +156,7 @@ export function Settings({
 
             <Toggle
               label="Hand yaku (teyaku)"
-              hint="Teshi and Kuttsuki score 6 at the deal and end the round immediately."
+              hint="Teshi and Kuttsuki score 6 at the deal and end the round immediately. Both players dealt one is a draw."
               checked={rules.teyakuEnabled}
               onChange={(v) => set('teyakuEnabled', v)}
             />
@@ -181,9 +181,10 @@ export function Settings({
 
             <Choice<KoiKoiMultiplierMode>
               label="Koi-Koi multiplier"
-              hint="Sum: +1 per koi-koi called by either player. Opponent only: ×2 if they called it."
+              hint="Standard: +1 for each koi-koi you called, then ×2 if your opponent called at all. Sum: +1 per call by either player. Opponent only: ×2 if they called it."
               value={rules.koiKoiMultiplierMode}
               options={[
+                ['bga', 'Standard'],
                 ['sum', 'Sum of calls'],
                 ['opponentDoubleOnly', 'Opponent only'],
               ]}
@@ -192,18 +193,18 @@ export function Settings({
 
             <Choice<DrawRule>
               label="Nobody scores"
-              hint="When both hands empty and no one called the round."
+              hint="When both hands empty and no one called the round. Oya-ken, the dealer's privilege, gives the dealer a consolation point."
               value={rules.drawRule}
               options={[
                 ['no-score', 'No score'],
-                ['dealer-6', 'Dealer takes 6'],
+                ['dealer-1', 'Dealer takes 1'],
               ]}
               onChange={(v) => set('drawRule', v)}
             />
 
             <Choice<number>
               label="Match length"
-              hint="Rounds per match. The deal alternates every round."
+              hint="Rounds per match. The winner of each round deals the next."
               value={rules.rounds}
               options={[
                 [1, '1'],

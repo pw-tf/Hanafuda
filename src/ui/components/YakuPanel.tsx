@@ -3,7 +3,7 @@
  * to the rest, so the scoring is never a mystery mid-round.
  */
 
-import { CARD_IDS, type CardId } from '../../engine/cards';
+import { CARD_IDS, getCard, type CardId, type Month } from '../../engine/cards';
 import type { RuleConfig, YakuId } from '../../engine/rules';
 import { YAKU_INFO } from '../../engine/rules';
 import { countCaptures, evaluateYaku } from '../../engine/yaku';
@@ -17,10 +17,14 @@ interface Progress {
 }
 
 /** Progress toward every yaku that is currently reachable. */
-function computeProgress(captured: readonly CardId[], rules: RuleConfig): Progress[] {
+function computeProgress(
+  captured: readonly CardId[],
+  rules: RuleConfig,
+  month: Month,
+): Progress[] {
   const counts = countCaptures(captured, rules);
   const ids = counts.ids;
-  const scored = new Map(evaluateYaku(captured, rules).yaku.map((y) => [y.id, y.points]));
+  const scored = new Map(evaluateYaku(captured, rules, month).yaku.map((y) => [y.id, y.points]));
 
   const held = (required: readonly CardId[]) => required.filter((id) => ids.has(id)).length;
 
@@ -29,13 +33,24 @@ function computeProgress(captured: readonly CardId[], rules: RuleConfig): Progre
     rows.push({ id, points: scored.get(id) ?? points, have, need, complete: scored.has(id) });
   };
 
-  // Only the highest reachable Brights yaku is shown, since they are exclusive.
+  /*
+   * Only the highest reachable Brights yaku is shown, since they are exclusive.
+   *
+   * The incomplete case has to respect the Rain Man rule or it tells the player
+   * the opposite of what the scorer will do: it is excluded from Sanko, so
+   * three brights that include it are not "Sanko 3/3" — they are worth nothing
+   * until a fourth bright turns them into Ame-Shiko. So progress is counted
+   * against Ame-Shiko when the Rain Man is held and against Sanko when it is
+   * not, and the Rain Man itself never counts toward Sanko.
+   */
   const brights = counts.brights.length;
+  const plainBrights = brights - (counts.hasRainMan ? 1 : 0);
   if (scored.has('goko')) add('goko', 5, 5, rules.points.goko);
   else if (scored.has('shiko')) add('shiko', 4, 4, rules.points.shiko);
   else if (scored.has('ame-shiko')) add('ame-shiko', 4, 4, rules.points.ameShiko);
   else if (scored.has('sanko')) add('sanko', 3, 3, rules.points.sanko);
-  else if (brights > 0) add('sanko', brights, 3, rules.points.sanko);
+  else if (counts.hasRainMan) add('ame-shiko', brights, 4, rules.points.ameShiko);
+  else if (plainBrights > 0) add('sanko', plainBrights, 3, rules.points.sanko);
 
   const isc = [CARD_IDS.BOAR, CARD_IDS.DEER, CARD_IDS.BUTTERFLIES];
   if (held(isc) > 0) add('ino-shika-cho', held(isc), 3, rules.points.inoShikaCho);
@@ -57,6 +72,11 @@ function computeProgress(captured: readonly CardId[], rules: RuleConfig): Progre
     add('tanzaku', counts.tanzaku.length, rules.tanzakuThreshold, rules.points.tanzakuBase);
   if (counts.kasu.length > 0) add('kasu', counts.kasu.length, rules.kasuThreshold, rules.points.kasuBase);
 
+  if (rules.tsukiFudaEnabled) {
+    const ofMonth = [...ids].filter((id) => getCard(id).month === month).length;
+    if (ofMonth > 0) add('tsuki-fuda', ofMonth, 4, rules.points.tsukiFuda);
+  }
+
   // Completed yaku first, then whichever is closest to completing.
   return rows.sort((a, b) => {
     if (a.complete !== b.complete) return a.complete ? -1 : 1;
@@ -67,14 +87,17 @@ function computeProgress(captured: readonly CardId[], rules: RuleConfig): Progre
 export function YakuPanel({
   captured,
   rules,
+  month,
   title,
 }: {
   captured: readonly CardId[];
   rules: RuleConfig;
+  /** The round's month. Needed so the optional Tsuki-fuda rule can be counted. */
+  month: Month;
   title: string;
 }) {
-  const rows = computeProgress(captured, rules);
-  const { base } = evaluateYaku(captured, rules);
+  const rows = computeProgress(captured, rules, month);
+  const { base } = evaluateYaku(captured, rules, month);
 
   return (
     <div className="yaku">

@@ -16,7 +16,7 @@ app icon; the manifest is already set up for it.
 ```sh
 npm install
 npm run dev      # http://localhost:5173
-npm test         # 181 tests
+npm test         # 201 tests
 npm run build    # typecheck + production build
 ```
 
@@ -108,11 +108,21 @@ final = base × (base >= 7 ? ×2 : ×1) × koi-koi multiplier
 ```
 
 The seven-point test reads the **raw** yaku total, never a partially
-multiplied one. The koi-koi multiplier defaults to `1 + every koi-koi called
-this round by either player`, which matches Board Game Arena's documented
-default (+1 per koi-koi) and also expresses the "your opponent called koi-koi,
-so you score double" rule with a single formula. An `opponentDoubleOnly` mode
-is available in Settings.
+multiplied one.
+
+The koi-koi multiplier is two separate mechanics, not one, and the default
+`bga` mode implements both:
+
+```
+koi = (1 + your own koi-koi calls) × (opponent called at all ? ×2 : ×1)
+```
+
+Each koi-koi you call adds one to your own multiplier; a koi-koi from your
+opponent doubles what you finally score, **once**, however many times they
+called it. Two simplifications ship alongside it in Settings: `sum`
+(`1 + every call by either player` — agrees with `bga` when only one player
+called, and diverges once both did) and `opponentDoubleOnly` (×2 if the loser
+ever called, ignoring your own).
 
 ### Optional rules
 
@@ -120,11 +130,12 @@ All are toggleable in Settings.
 
 | Rule | Default | Behaviour |
 |---|---|---|
-| Teyaku (hand yaku) | **on** | Teshi (4 of one month) and Kuttsuki (4 pairs) score 6 at the deal and end the round |
+| Teyaku (hand yaku) | **on** | Teshi (4 of one month) and Kuttsuki (4 pairs) score 6 at the deal and end the round. Both players dealt one is a draw |
 | Sake cup counts as | Animal only | Or animal **and** chaff, affecting the Kasu count |
 | Tsuki-fuda (month cards) | **off** | 4 points for all four cards of the round's month. Off by default — the value is a house rule with weak sourcing |
-| Match length | 12 rounds | Dealer alternates each round |
-| Nobody scores | No score | Or the dealer takes 6 |
+| Koi-koi multiplier | Standard | Or the `sum` / `opponentDoubleOnly` simplifications above |
+| Match length | 12 rounds | First dealer drawn at random; after that the winner of each round deals the next |
+| Nobody scores | No score | Or oya-ken: the dealer takes 1 |
 
 The in-game **How to play** screen documents all of the above — the turn, the
 matching rule, every yaku with the cards that make it, and the multiplier
@@ -309,16 +320,19 @@ read aloud round-trips reliably.
 
 ## Testing
 
-`npm test` — 181 tests, ~20 s. `npm run bench:ai` measures AI strength; it takes minutes and is deliberately not part of the suite.
+`npm test` — 201 tests, ~25 s. `npm run bench:ai` measures AI strength; it takes minutes and is deliberately not part of the suite.
 
 - **Deck structure** — all invariants listed above.
 - **Yaku truth table** — every yaku at its threshold and one below; brights
   exclusivity; three-brights-with-Rain-Man scoring zero; Akatan + Aotan +
   Tanzaku stacking to 12; both sake-cup modes; both presets.
-- **Scoring** — the ≥7 doubling, both koi-koi modes, and explicitly that the
-  threshold tests the raw base (base 4 with a ×2 koi multiplier is 8, not 16).
+- **Scoring** — the ≥7 doubling, all three koi-koi modes (including that one
+  call each is ×4 under `bga` and ×3 under `sum`), migration of a stored
+  ruleset, and explicitly that the threshold tests the raw base (base 4 with a
+  ×2 koi multiplier is 8, not 16).
 - **Flow** — all four match counts on both the hand play and the deck flip,
-  redeal on a four-of-a-month field, teyaku, every round-end condition.
+  redeal on a four-of-a-month field, teyaku including the both-players draw,
+  the deal passing to the round's winner, and every round-end condition.
 - **Invariants** — 10,000 random matches (120,000 rounds), asserting at
   *every step* that all 48 cards are in exactly one place, that the field
   never holds four of a month, that no state is mutated, and that match

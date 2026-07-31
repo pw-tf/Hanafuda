@@ -34,9 +34,20 @@ export type SakeCupMode =
 
 export type KoiKoiMultiplierMode =
   /**
+   * Board Game Arena's documented default, and the one the sources agree on.
+   * Two separate mechanics: each koi-koi you call yourself adds one to your own
+   * multiplier, and a koi-koi called by your opponent doubles what you finally
+   * score — once, however many times they called it.
+   *
+   *     (1 + yourCalls) x (theirCalls > 0 ? 2 : 1)
+   */
+  | 'bga'
+  /**
    * Multiplier = 1 + every koi-koi called this round by either player.
-   * Matches Board Game Arena's documented default (+1 per koi-koi) and also
-   * expresses the "opponent called koi-koi, so you score double" rule.
+   *
+   * A simplification, not a published rule: it agrees with `bga` when only one
+   * player ever called, and diverges once both did (1 + 1 gives x3 here and x4
+   * on BGA) or when the loser called more than once.
    */
   | 'sum'
   /** x2 if and only if the losing player called koi-koi at least once. */
@@ -46,8 +57,12 @@ export type KoiKoiMultiplierMode =
 export type DrawRule =
   /** Nobody scores. */
   | 'no-score'
-  /** The dealer takes 6 points. */
-  | 'dealer-6';
+  /**
+   * Oya-ken, "dealer's privilege": the dealer takes a point. The deal staying
+   * with the dealer is not part of this option — an unwon round never moves the
+   * deal, whichever draw rule is in play.
+   */
+  | 'dealer-1';
 
 export interface YakuPoints {
   goko: number;
@@ -115,7 +130,7 @@ const SHARED_RULES = {
   kasuThreshold: 10,
   sevenPointThreshold: 7,
   sevenPointMultiplier: 2,
-  koiKoiMultiplierMode: 'sum' as const,
+  koiKoiMultiplierMode: 'bga' as const,
   teyakuEnabled: true,
   // Ships off: the 4-point value for Tsuki-fuda is a house rule with weak
   // sourcing, so it is available but not on by default.
@@ -161,6 +176,35 @@ export const DEFAULT_RULES = STANDARD_RULES;
 
 export function getPreset(id: string): RuleConfig {
   return RULE_PRESETS.find((p) => p.id === id) ?? DEFAULT_RULES;
+}
+
+/**
+ * Bring a stored `RuleConfig` up to date.
+ *
+ * Saved games and saved preferences both carry a whole `RuleConfig`, so an
+ * option that has since been renamed comes back from storage as a string this
+ * build no longer understands. Left alone it reaches `koiMultiplier` and falls
+ * off the end of the switch, returning `undefined` and turning a round total
+ * into `NaN`. Every value is mapped here instead — to the option that means the
+ * same thing where there is one, and to the default otherwise.
+ */
+export function migrateRules(stored: RuleConfig): RuleConfig {
+  const koi = stored.koiKoiMultiplierMode as string;
+  const koiKoiMultiplierMode: KoiKoiMultiplierMode =
+    koi === 'bga' || koi === 'sum' || koi === 'opponentDoubleOnly'
+      ? koi
+      : DEFAULT_RULES.koiKoiMultiplierMode;
+
+  // 'dealer-6' was this app's own spelling of oya-ken, at an unsourced 6 points.
+  const draw = stored.drawRule as string;
+  const drawRule: DrawRule =
+    draw === 'no-score' || draw === 'dealer-1'
+      ? draw
+      : draw === 'dealer-6'
+        ? 'dealer-1'
+        : DEFAULT_RULES.drawRule;
+
+  return { ...stored, koiKoiMultiplierMode, drawRule };
 }
 
 /** Display metadata for the yaku list in the UI. Points come from `RuleConfig`. */

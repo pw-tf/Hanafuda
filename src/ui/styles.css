@@ -882,6 +882,15 @@ code {
   color: var(--muted);
 }
 
+/* The koi-koi prompt's working: base and multipliers, under the total. Brighter
+   than the explanation below it — it is how the number above was arrived at, so
+   it has to read as part of the total rather than as small print. */
+.sheet__explain--maths {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
 .sheet__body {
   display: flex;
   flex-direction: column;

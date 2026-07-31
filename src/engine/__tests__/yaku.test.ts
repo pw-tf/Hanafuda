@@ -241,10 +241,13 @@ describe('teyaku', () => {
     expect(result[0]!.points).toBe(6);
   });
 
-  it('scores Teshi twice when the hand is two complete months', () => {
+  it('scores Teshi once when the hand is two complete months', () => {
+    // Teyaku is a flat instant win, not a per-combination total: a hand that is
+    // two whole months is still one Teshi, not twelve points.
     const hand = [...monthCards(1), ...monthCards(2)];
     const result = evaluateTeyaku(hand, STANDARD_RULES);
-    expect(result.map((y) => y.id)).toEqual(['teshi', 'teshi']);
+    expect(result.map((y) => y.id)).toEqual(['teshi']);
+    expect(result.reduce((s, y) => s + y.points, 0)).toBe(STANDARD_RULES.points.teshi);
   });
 
   it('scores Kuttsuki for four pairs', () => {
@@ -270,8 +273,10 @@ describe('yakuForCard', () => {
   const of = (id: CardId, rules: RuleConfig = STANDARD_RULES) => yakuForCard(id, rules).sort();
 
   it('offers every brights yaku to an ordinary bright', () => {
-    expect(of(CARD_IDS.CRANE)).toEqual(['goko', 'sanko', 'shiko']);
-    expect(of(CARD_IDS.PHOENIX)).toEqual(['goko', 'sanko', 'shiko']);
+    // Ame-Shiko included: it is the Rain Man plus any three of the others, so
+    // every bright is a candidate for it.
+    expect(of(CARD_IDS.CRANE)).toEqual(['ame-shiko', 'goko', 'sanko', 'shiko']);
+    expect(of(CARD_IDS.PHOENIX)).toEqual(['ame-shiko', 'goko', 'sanko', 'shiko']);
   });
 
   it('excludes the Rain Man from Shiko and Sanko', () => {

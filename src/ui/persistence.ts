@@ -15,6 +15,7 @@
 
 import { ALL_CARD_IDS, type CardId } from '../engine/cards';
 import type { GameState } from '../engine/game';
+import { migrateRules } from '../engine/rules';
 import { DIFFICULTY_LABEL, type Difficulty } from '../ai';
 import type { SessionMode } from './useGameSession';
 import type { Strategy } from '../net/protocol';
@@ -100,7 +101,13 @@ export function loadGame(): SavedGame | null {
       clearGame();
       return null;
     }
-    return parsed;
+    // The save carries a whole `RuleConfig`, so a rule option renamed since it
+    // was written comes back as a string this build cannot score with. The
+    // shape is unchanged, so this is a repair rather than a schema bump.
+    return {
+      ...parsed,
+      state: { ...parsed.state, rules: migrateRules(parsed.state.rules) },
+    };
   } catch {
     clearGame();
     return null;

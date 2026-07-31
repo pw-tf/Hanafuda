@@ -33,10 +33,12 @@ export interface KoiKoiCounts {
 
 export function koiMultiplier(counts: KoiKoiCounts, mode: KoiKoiMultiplierMode): number {
   switch (mode) {
+    case 'bga':
+      // Two separate mechanics, not one. Calling koi-koi yourself adds one to
+      // your own multiplier each time; the opponent calling it doubles whatever
+      // you finally score, once, no matter how often they called.
+      return (1 + counts.byWinner) * (counts.byLoser > 0 ? 2 : 1);
     case 'sum':
-      // Every koi-koi in the round raises the multiplier by one, whoever called
-      // it. This expresses both the "+1 per koi-koi" rule and the "the opponent
-      // called koi-koi so you score double" rule with a single formula.
       return 1 + counts.byWinner + counts.byLoser;
     case 'opponentDoubleOnly':
       return counts.byLoser > 0 ? 2 : 1;

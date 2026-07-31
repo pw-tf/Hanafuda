@@ -126,6 +126,12 @@ All are toggleable in Settings.
 | Match length | 12 rounds | Dealer alternates each round |
 | Nobody scores | No score | Or the dealer takes 6 |
 
+The in-game **How to play** screen documents all of the above — the turn, the
+matching rule, every yaku with the cards that make it, and the multiplier
+arithmetic — and renders it from the *active* `RuleConfig`. No point value,
+threshold or card list is written into that copy, so the rules a player reads
+are the rules the next game will be scored by.
+
 ---
 
 ## The deck

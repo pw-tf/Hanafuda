@@ -1475,6 +1475,119 @@ code {
   color: var(--gold);
 }
 
+/* Tabbed like Settings, and for the same reason: the panel is a plain wrapper
+   and has to reproduce the screen's own column spacing. */
+.screen--howto [role='tabpanel'] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* One yaku: a name and its points on one line, then the requirement, then the
+   cards. Separated by rules rather than by gaps alone — a dozen of these in a
+   panel need a horizon each or they read as one paragraph. */
+.yakudef {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--line);
+}
+
+.yakudef:first-of-type {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.yakudef__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.yakudef__head h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.yakudef__head em {
+  font-style: normal;
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.yakudef__pts {
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--gold);
+}
+
+.yakudef__note {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* The cards that make up a combination. Wraps: the counting yaku show all ten
+   ribbons or all nine animals, which is two rows on a phone. */
+.combo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.1rem;
+}
+
+.combo__card {
+  margin: 0;
+  width: 46px;
+}
+
+.combo__card img {
+  display: block;
+  /* Real cards have rounded corners; the square chrome does not apply here. */
+  border-radius: 3px;
+}
+
+.combo--named .combo__card figcaption {
+  margin-top: 0.15rem;
+  font-size: 0.6rem;
+  line-height: 1.25;
+  color: var(--muted);
+}
+
+.combo__month {
+  display: block;
+  color: var(--text);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+/* An aside inside a card: the caveat that stops a rule being misread. The gold
+   edge is the same signal the game uses for "this is what scores". */
+.note {
+  margin: 0;
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--gold);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.formula {
+  margin: 0;
+  text-align: center;
+  font-size: 0.8rem;
+}
+
 /* ---------------------------------------------------------------- gallery */
 
 .gallery {

@@ -116,7 +116,9 @@ export function App() {
     }
 
     if (route === 'howto') {
-      return <HowToPlay onBack={() => navigate('menu')} />;
+      // The rules screen quotes the active point table and optional rules
+      // rather than a fixed one, so it agrees with the game about to be played.
+      return <HowToPlay rules={rules} onBack={() => navigate('menu')} />;
     }
 
     if (route === 'solo') {

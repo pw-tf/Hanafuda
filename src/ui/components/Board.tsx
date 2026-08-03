@@ -58,26 +58,47 @@ export function Board({
   const choosing = round.phase === 'choose-hand-target' || round.phase === 'choose-draw-target';
   const choiceOptions = new Set(choosing ? (round.pending?.options ?? []) : []);
 
+  /** Whether the card that is forward can actually be put down right now. */
+  const canPlay = canAct && round.phase === 'play';
+
+  /**
+   * Whether the fan answers at all.
+   *
+   * Wider than `canPlay` on purpose: while the opponent is playing, or while
+   * the Koi-Koi decision is open, you can still slide through your hand, pull
+   * a card forward and read what it is. None of that touches the state. It is
+   * only shut off where a tap on the fan would fight the tap the game is
+   * actually waiting for — picking which of two field cards to take — or where
+   * there is no live hand to browse.
+   */
+  const canBrowse = round.phase !== 'round-end' && !choosing;
+
   const selectedMatches = selected ? matchesFor(selected, round.field) : [];
   const selectableTargets = new Set(selectedMatches);
-  /** A forward card with nowhere to go is discarded by tapping the table. */
-  const discardArmed = Boolean(selected) && selectedMatches.length === 0;
+  /**
+   * A forward card with nowhere to go is discarded by tapping the table — but
+   * only on your own turn. Out of turn the table is just the table, or a card
+   * held ready while the opponent thinks would be thrown away by a stray tap.
+   */
+  const discardArmed = canPlay && Boolean(selected) && selectedMatches.length === 0;
 
   const matchCounts = new Map<CardId, number>(
     myHand.map((id) => [id, matchesFor(id, round.field).length]),
   );
 
   /**
-   * A tap on the table means capture while a card is forward, and "what is
-   * this?" when nothing is. Keeping those apart is what stops the info panel
-   * from ever getting in the way of a move.
+   * A tap on the table means capture while a card is forward *and* it is your
+   * turn, and "what is this?" the rest of the time. Keeping those apart is
+   * what stops the info panel from ever getting in the way of a move — and it
+   * is what lets the field stay readable out of turn, where the lit cards are
+   * a preview of what the held card would take rather than a live target.
    */
   const handleField = (id: CardId) => {
     if (choosing && choiceOptions.has(id)) {
       onChooseTarget(id);
       return;
     }
-    if (selected) {
+    if (selected && canPlay) {
       if (selectableTargets.has(id)) onPlay(selected);
       return;
     }
@@ -113,7 +134,13 @@ export function Board({
   return (
     <div className="board">
       <div
-        className={`board__field${discardArmed ? ' board__field--discard' : ''}`}
+        className={
+          'board__field' +
+          (discardArmed ? ' board__field--discard' : '') +
+          // Lit cards out of turn are "this is what it would take", so they
+          // are drawn back from the solid gold that means "tap me".
+          (selected && !canPlay ? ' board__field--preview' : '')
+        }
         onClick={discardArmed && selected ? () => onPlay(selected) : undefined}
       >
         {order.map((id) => {
@@ -132,9 +159,9 @@ export function Board({
               // Held still until the flipped card has risen from the deck.
               style={goes && goes.delay > 0 ? { animationDelay: `${goes.delay}ms` } : undefined}
               onClick={() => handleField(id)}
-              // Tappable either as a capture target or, with nothing forward,
-              // to ask what the card is.
-              disabled={Boolean(goes) || (selected ? !isTarget : false)}
+              // Tappable either as a capture target or, when no move can
+              // follow the tap, to ask what the card is.
+              disabled={Boolean(goes) || (selected && canPlay ? !isTarget : false)}
               aria-hidden={Boolean(goes)}
               aria-label={`${getCard(id).name}, ${getCard(id).suit}`}
             >
@@ -169,7 +196,8 @@ export function Board({
       <Hand
         cards={myHand}
         matchCounts={matchCounts}
-        canAct={canAct && round.phase === 'play'}
+        canPlay={canPlay}
+        canBrowse={canBrowse}
         selected={selected}
         onSelect={onSelect}
       />

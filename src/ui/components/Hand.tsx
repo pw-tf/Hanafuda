@@ -11,6 +11,13 @@
  *
  * A tap is distinguished from a slide by how far the pointer travelled, so
  * dragging across the fan never accidentally plays a card.
+ *
+ * Both gestures stay live while the opponent is playing. Nothing about
+ * browsing your own hand touches the game state, and thinking about your next
+ * move during their turn is the whole of the waiting — the fan used to go
+ * half-transparent and stop responding, which made the pause dead time. Only
+ * the commit is withheld: `canPlay` says whether the card that is forward can
+ * actually be put down, `canBrowse` whether the fan answers at all.
  */
 
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -24,13 +31,16 @@ export interface HandProps {
   cards: readonly CardId[];
   /** Field-match count per card, for the badge. */
   matchCounts: ReadonlyMap<CardId, number>;
-  canAct: boolean;
+  /** The forward card can be played right now. */
+  canPlay: boolean;
+  /** The fan responds to slides and taps, whether or not a move can follow. */
+  canBrowse: boolean;
   /** The card pulled forward, if any. */
   selected: CardId | null;
   onSelect(card: CardId | null): void;
 }
 
-export function Hand({ cards, matchCounts, canAct, selected, onSelect }: HandProps) {
+export function Hand({ cards, matchCounts, canPlay, canBrowse, selected, onSelect }: HandProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [focus, setFocus] = useState<number | null>(null);
   const [width, setWidth] = useState(360);
@@ -63,13 +73,13 @@ export function Hand({ cards, matchCounts, canAct, selected, onSelect }: HandPro
   );
 
   const onPointerDown = (e: React.PointerEvent) => {
-    if (!canAct) return;
+    if (!canBrowse) return;
     pointer.current = { id: e.pointerId, startX: e.clientX, startY: e.clientY, moved: false };
     setFocus(indexAt(e.clientX));
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!canAct) return;
+    if (!canBrowse) return;
     const p = pointer.current;
     if (p && e.pointerId === p.id) {
       if (Math.abs(e.clientX - p.startX) > TAP_SLOP_PX || Math.abs(e.clientY - p.startY) > TAP_SLOP_PX) {
@@ -87,7 +97,7 @@ export function Hand({ cards, matchCounts, canAct, selected, onSelect }: HandPro
   const onPointerUp = (e: React.PointerEvent) => {
     const p = pointer.current;
     pointer.current = null;
-    if (!canAct || !p || e.pointerId !== p.id) return;
+    if (!canBrowse || !p || e.pointerId !== p.id) return;
 
     if (!p.moved) {
       const i = indexAt(e.clientX);
@@ -103,7 +113,14 @@ export function Hand({ cards, matchCounts, canAct, selected, onSelect }: HandPro
   return (
     <div
       ref={ref}
-      className={`hand ${canAct ? '' : 'hand--idle'}`}
+      className={
+        'hand' +
+        (canBrowse ? '' : ' hand--idle') +
+        // Browsable but not playable: the fan is live, so it stays legible —
+        // only the "you could put this down" rim is toned back, so a lit card
+        // is never read as an invitation to move out of turn.
+        (canBrowse && !canPlay ? ' hand--preview' : '')
+      }
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -130,7 +147,7 @@ export function Hand({ cards, matchCounts, canAct, selected, onSelect }: HandPro
               (matches > 0 ? ' hand__card--playable' : '')
             }
             style={cardStyle(slots[i] ?? { x: 0, y: 0, rotate: 0 }, i, isSelected, isFocus)}
-            disabled={!canAct}
+            disabled={!canBrowse}
             // Pointer handling lives on the container so a drag that starts on
             // one card and ends on another still reads as one gesture.
             onClick={(e) => e.preventDefault()}

@@ -75,6 +75,65 @@ export function sanitizeName(raw: string, fallback: string): string {
   return capped.length > 0 ? capped : fallback;
 }
 
+/**
+ * Emote reactions.
+ *
+ * A closed set, and it is the *id* that travels — never the glyph. A modified
+ * client can therefore only ever make one of these five faces appear on the
+ * other player's table, rather than painting arbitrary text over it. Anything
+ * unrecognised is dropped at the boundary, the same way a nickname is
+ * sanitized.
+ */
+export const EMOTES = [
+  { id: 'smirk', glyph: '😏', label: 'Smug' },
+  { id: 'watch', glyph: '👀', label: 'Watching you' },
+  { id: 'angry', glyph: '😡', label: 'Furious' },
+  { id: 'think', glyph: '🤔', label: 'Thinking' },
+  { id: 'wow', glyph: '😮', label: 'Wow' },
+] as const;
+
+export type Emote = (typeof EMOTES)[number];
+export type EmoteId = Emote['id'];
+
+const EMOTE_BY_ID = new Map<string, Emote>(EMOTES.map((e) => [e.id, e]));
+
+export function isEmoteId(value: unknown): value is EmoteId {
+  return typeof value === 'string' && EMOTE_BY_ID.has(value);
+}
+
+export function emote(id: EmoteId): Emote {
+  // Every caller has already passed the id through `isEmoteId`, so the
+  // non-null is a statement about the type rather than a hope.
+  return EMOTE_BY_ID.get(id) as Emote;
+}
+
+/**
+ * How long a player must wait between reactions.
+ *
+ * Enforced on both ends: the sender's picker greys out, and the receiver
+ * drops anything that arrives sooner. One player cannot turn the other's
+ * table into a flipbook.
+ */
+export const EMOTE_COOLDOWN_MS = 1500;
+
+/**
+ * Whether a reaction at `now` clears the cooldown that started at `lastAt`.
+ *
+ * One function for both ends, so the sender's greyed-out button and the
+ * receiver's drop rule cannot drift apart and leave a player wondering why
+ * their reaction went nowhere.
+ */
+export function emoteAllowed(lastAt: number, now: number): boolean {
+  return now - lastAt >= EMOTE_COOLDOWN_MS;
+}
+
+/** Either side, any time: "here is how I feel about that". */
+export type EmoteMessage = {
+  v: number;
+  /** An `EmoteId`. Untrusted until checked with `isEmoteId`. */
+  id: string;
+}
+
 /** Host -> guest, once on connect, so both sides agree on the rules. */
 export type HelloMessage = {
   v: number;
@@ -114,6 +173,7 @@ export const ACTIONS = {
   state: 'state',
   intent: 'intent',
   reject: 'reject',
+  emote: 'emote',
 } as const;
 
 /**

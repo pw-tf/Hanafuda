@@ -30,6 +30,8 @@ import {
   decodeState,
   sanitizeName,
   seedFromRoomCode,
+  emoteAllowed,
+  type EmoteId,
   type RejectReason,
   type Strategy,
 } from '../net/protocol';
@@ -65,6 +67,16 @@ export interface Session {
   lastRejection: RejectReason | null;
   submit(move: Move): void;
   restart(): void;
+  /**
+   * The last reaction the other player sent, if any.
+   *
+   * The nonce is what makes a repeat visible: sending 😏 twice in a row is
+   * two reactions, and an identity-compared object would swallow the second.
+   */
+  lastEmote: { id: EmoteId; nonce: number } | null;
+  /** True when there is a real person on the other end to react to. */
+  canEmote: boolean;
+  sendEmote(id: EmoteId): void;
 }
 
 /**
@@ -115,6 +127,9 @@ export function useGameSession(config: SessionConfig): Session {
   const [lastRejection, setLastRejection] = useState<RejectReason | null>(null);
   const [busy, setBusy] = useState(false);
   const [peerName, setPeerName] = useState<string | null>(null);
+  const [lastEmote, setLastEmote] = useState<{ id: EmoteId; nonce: number } | null>(null);
+  const emoteNonce = useRef(0);
+  const emoteSentAt = useRef(0);
 
   const roomRef = useRef<RoomHandle | null>(null);
   const stateRef = useRef<GameState | null>(state);
@@ -225,6 +240,10 @@ export function useGameSession(config: SessionConfig): Session {
           commit(applyMove(current, move));
         },
       onReject: (message) => setLastRejection(message.reason),
+      onEmote: (id) => {
+        emoteNonce.current += 1;
+        setLastEmote({ id, nonce: emoteNonce.current });
+      },
     };
 
     void import('../net/room')
@@ -417,6 +436,25 @@ export function useGameSession(config: SessionConfig): Session {
     [mode, controls, commit],
   );
 
+  /**
+   * Send a reaction to the other player.
+   *
+   * Nothing about the game position gates this: reacting to the turn you are
+   * watching is most of the point, and it cannot alter the state, so it is
+   * allowed whenever the channel is open. The cooldown is kept here as well
+   * as on the button so a wedged UI cannot become a firehose.
+   */
+  const sendEmote = useCallback(
+    (id: EmoteId) => {
+      if (!isNetwork) return;
+      const now = Date.now();
+      if (!emoteAllowed(emoteSentAt.current, now)) return;
+      emoteSentAt.current = now;
+      roomRef.current?.sendEmote(id);
+    },
+    [isNetwork],
+  );
+
   const restart = useCallback(() => {
     if (mode === 'guest') return;
     clearGame();
@@ -444,5 +482,8 @@ export function useGameSession(config: SessionConfig): Session {
     lastRejection,
     submit,
     restart,
+    lastEmote,
+    canEmote: isNetwork && connection === 'connected',
+    sendEmote,
   };
 }

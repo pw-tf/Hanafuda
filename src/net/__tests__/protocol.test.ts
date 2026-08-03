@@ -3,6 +3,11 @@ import { applyMove, createGame, legalMoves, type GameState, type Move } from '..
 import { createRng } from '../../engine/rng';
 import { STANDARD_RULES } from '../../engine/rules';
 import {
+  EMOTES,
+  EMOTE_COOLDOWN_MS,
+  emote,
+  emoteAllowed,
+  isEmoteId,
   MAX_NAME_LENGTH,
   sanitizeName,
   decodeMove,
@@ -232,5 +237,52 @@ describe('nicknames', () => {
     expect(sanitizeName('こいこい', 'Friend')).toBe('こいこい');
     // Emoji are astral-plane pairs; the cap counts code points, not units.
     expect(sanitizeName('🎴🎴', 'Friend')).toBe('🎴🎴');
+  });
+});
+
+describe('emote reactions', () => {
+  // The id is what travels; the glyph is looked up locally on each device.
+  // So the only thing a modified client can put on the other player's table
+  // is one of these five faces.
+  it('accepts every id it publishes, and nothing else', () => {
+    for (const e of EMOTES) {
+      expect(isEmoteId(e.id), e.id).toBe(true);
+      expect(emote(e.id).glyph).toBe(e.glyph);
+    }
+    for (const bogus of ['', 'SMIRK', 'smirk ', '😏', '__proto__', 'toString', 'constructor']) {
+      expect(isEmoteId(bogus), bogus).toBe(false);
+    }
+    for (const bogus of [null, undefined, 0, 1, {}, [], true]) {
+      expect(isEmoteId(bogus), String(bogus)).toBe(false);
+    }
+  });
+
+  it('gives every reaction a distinct id, glyph and spoken label', () => {
+    const unique = <T>(xs: readonly T[]) => new Set(xs).size === xs.length;
+    expect(unique(EMOTES.map((e) => e.id))).toBe(true);
+    expect(unique(EMOTES.map((e) => e.glyph))).toBe(true);
+    // The label is what a screen reader announces, so two faces that read the
+    // same would be indistinguishable to anyone not looking at the screen.
+    expect(unique(EMOTES.map((e) => e.label))).toBe(true);
+  });
+
+  it('holds a sender to the cooldown, whatever their client does', () => {
+    expect(emoteAllowed(0, 0)).toBe(false);
+    expect(emoteAllowed(1000, 1000 + EMOTE_COOLDOWN_MS - 1)).toBe(false);
+    expect(emoteAllowed(1000, 1000 + EMOTE_COOLDOWN_MS)).toBe(true);
+    // A first reaction is never held back: nothing has been sent yet.
+    expect(emoteAllowed(0, Date.now())).toBe(true);
+  });
+
+  it('drops a flood down to one reaction per cooldown', () => {
+    // The receiver's rule, run over a client sending every 100ms for 10s.
+    let lastAt = 0;
+    let shown = 0;
+    for (let now = 1; now <= 10_000; now += 100) {
+      if (!emoteAllowed(lastAt, now)) continue;
+      lastAt = now;
+      shown++;
+    }
+    expect(shown).toBeLessThanOrEqual(Math.ceil(10_000 / EMOTE_COOLDOWN_MS));
   });
 });

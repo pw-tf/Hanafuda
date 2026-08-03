@@ -9,12 +9,17 @@ import { CardInfo } from '../components/CardInfo';
 import { Connecting } from '../components/Connecting';
 import { ScoreSheet } from '../components/ScoreSheet';
 import { CapturePile, PileSummary } from '../components/CapturePile';
+import { EmoteBurst, EmotePicker } from '../components/Emotes';
 import { KoiKoiCall } from '../components/KoiKoiCall';
 import { KoiKoiPrompt, RoundBreakdown, RoundEnd } from '../components/RoundEnd';
 import { Sheet } from '../components/Sheet';
 import { YakuPanel } from '../components/YakuPanel';
+import { plural } from '../text';
 import { useGameSession, type SessionConfig } from '../useGameSession';
-import { sanitizeName } from '../../net/protocol';
+import { sanitizeName, type EmoteId } from '../../net/protocol';
+
+/** Stable empty list, so a null state does not make a new array every render. */
+const NO_CARDS: readonly CardId[] = [];
 
 export interface GameScreenProps extends SessionConfig {
   rules: RuleConfig;
@@ -30,6 +35,8 @@ export function Game({ names: defaultNames, onExit, ...config }: GameScreenProps
   /** The card whose details are on screen, if any. */
   const [inspecting, setInspecting] = useState<CardId | null>(null);
   const [showScores, setShowScores] = useState(false);
+  /** The Koi-Koi prompt is slid away so the table can be looked at. */
+  const [peeking, setPeeking] = useState(false);
 
   /** The other player's Koi-Koi, waiting to be announced. */
   const [koiCall, setKoiCall] = useState<{ id: number; by: PlayerIndex; calls: number } | null>(
@@ -38,11 +45,70 @@ export function Game({ names: defaultNames, onExit, ...config }: GameScreenProps
 
   const state = session.state;
 
-  // Clear the selection whenever the position changes under us.
+  /**
+   * Which seat the board is drawn from. In pass-and-play both players share
+   * one device, so the view has to follow whoever is to move — otherwise the
+   * second player is shown the first player's hand and can never act.
+   *
+   * Computed up here rather than after the loading returns because what is on
+   * screen — this seat's hand, this seat's decision — is what the effects
+   * below are about.
+   */
+  const seat: PlayerIndex =
+    config.mode === 'local' && state && state.roundState.phase !== 'round-end'
+      ? state.roundState.current
+      : (session.mySeat ?? 0);
+
+  const myHand = state ? state.roundState.players[seat].hand : NO_CARDS;
+  const field = state ? state.roundState.field : NO_CARDS;
+
+  // Read inside the effects below without making the arrays themselves
+  // dependencies: a guest rebuilds its state from JSON on every snapshot, so
+  // the array is new each time even when the same cards are in it.
+  const handRef = useRef(myHand);
+  handRef.current = myHand;
+  const visibleRef = useRef<readonly CardId[]>(myHand);
+  visibleRef.current = [...myHand, ...field];
+
+  const handKey = myHand.join(',');
+  const visibleKey = `${handKey}|${field.join(',')}`;
+
+  /**
+   * The forward card outlives the turn it was chosen in.
+   *
+   * It used to be cleared on every phase or turn change, which meant a card
+   * lined up while the opponent was playing dropped back into the fan the
+   * instant the turn arrived — the one moment it was wanted. A selection is
+   * only stale when the card itself has gone: played, captured, or a new hand
+   * dealt. Anything else, it stays where the player put it.
+   */
   useEffect(() => {
-    setSelected(null);
-    setInspecting(null);
-  }, [state?.roundState.phase, state?.roundState.current]);
+    const hand = handRef.current;
+    setSelected((current) => (current !== null && hand.includes(current) ? current : null));
+  }, [handKey]);
+
+  // Likewise the card-info panel: it explains a card, so it closes when that
+  // card is no longer anywhere to be seen rather than on the next turn.
+  useEffect(() => {
+    const visible = visibleRef.current;
+    setInspecting((current) => (current !== null && visible.includes(current) ? current : null));
+  }, [visibleKey]);
+
+  /**
+   * Whether this device owes a Koi-Koi decision. Derived before the loading
+   * returns so the peek can be reset the moment the decision is answered —
+   * otherwise the next prompt would open already slid away.
+   */
+  const koiDecision = Boolean(
+    state &&
+      state.roundState.phase === 'koikoi' &&
+      state.roundState.current === seat &&
+      session.canAct,
+  );
+
+  useEffect(() => {
+    if (!koiDecision) setPeeking(false);
+  }, [koiDecision]);
 
   /**
    * Watch for a Koi-Koi by anyone who is not us.
@@ -73,6 +139,36 @@ export function Game({ names: defaultNames, onExit, ...config }: GameScreenProps
   }, [calls0, calls1, viewerSeat]);
 
   const clearKoiCall = useCallback(() => setKoiCall(null), []);
+
+  /**
+   * Reactions, in both directions.
+   *
+   * Kept as two independent slots rather than one queue: a reaction and a
+   * reply can be in the air at once, and they rise from opposite sides of the
+   * table, so neither should cancel the other. Your own is shown locally the
+   * moment you send it — a reaction you cannot see yourself send looks exactly
+   * like one that never left.
+   */
+  const [myEmote, setMyEmote] = useState<{ id: EmoteId; nonce: number } | null>(null);
+  const [theirEmote, setTheirEmote] = useState<{ id: EmoteId; nonce: number } | null>(null);
+  const myEmoteNonce = useRef(0);
+
+  const incomingEmote = session.lastEmote;
+  useEffect(() => {
+    if (incomingEmote) setTheirEmote(incomingEmote);
+  }, [incomingEmote]);
+
+  const clearMyEmote = useCallback(() => setMyEmote(null), []);
+  const clearTheirEmote = useCallback(() => setTheirEmote(null), []);
+
+  const sendEmote = useCallback(
+    (id: EmoteId) => {
+      session.sendEmote(id);
+      myEmoteNonce.current += 1;
+      setMyEmote({ id, nonce: myEmoteNonce.current });
+    },
+    [session],
+  );
 
   const isNetwork = config.mode === 'host' || config.mode === 'guest';
   const strategy = config.strategy ?? 'nostr';
@@ -124,16 +220,6 @@ export function Game({ names: defaultNames, onExit, ...config }: GameScreenProps
         ]
     : defaultNames;
 
-  /**
-   * Which seat the board is drawn from. In pass-and-play both players share
-   * one device, so the view has to follow whoever is to move — otherwise the
-   * second player is shown the first player's hand and can never act.
-   */
-  const seat: PlayerIndex =
-    config.mode === 'local' && round.phase !== 'round-end'
-      ? round.current
-      : (session.mySeat ?? 0);
-
   const opponent: PlayerIndex = seat === 0 ? 1 : 0;
 
   /**
@@ -148,7 +234,8 @@ export function Game({ names: defaultNames, onExit, ...config }: GameScreenProps
   // Drives the status line: a forward card with no match is discarded by
   // tapping the table, and that instruction has to live here rather than
   // inside the field, where it grew the box and produced a scrollbar.
-  const selectedHasMatch = selected !== null && matchesFor(selected, round.field).length > 0;
+  const selectedMatches = selected === null ? 0 : matchesFor(selected, round.field).length;
+  const selectedHasMatch = selectedMatches > 0;
 
   /**
    * What calling shobu right now would actually pay.
@@ -166,7 +253,6 @@ export function Game({ names: defaultNames, onExit, ...config }: GameScreenProps
     state.rules,
   );
 
-  const showKoiKoi = round.phase === 'koikoi' && round.current === seat && session.canAct;
   const theirTurn = round.phase !== 'round-end' && round.current !== seat;
 
   const showRoundEnd = Boolean(result) && round.phase === 'round-end' && !state.matchOver;
@@ -176,8 +262,17 @@ export function Game({ names: defaultNames, onExit, ...config }: GameScreenProps
    * a card nobody is looking at any more. Opening a sheet by hand clears the
    * inspected card outright; gating the render as well covers the sheets that
    * appear on their own, like the koi-koi prompt.
+   *
+   * A peeked koi-koi prompt is the exception: it is off screen precisely so
+   * the table can be studied, and reading a card is most of what studying it
+   * means.
    */
-  const sheetOpen = showKoiKoi || showRoundEnd || state.matchOver || showScores || openPile !== null;
+  const sheetOpen =
+    (koiDecision && !peeking) ||
+    showRoundEnd ||
+    state.matchOver ||
+    showScores ||
+    openPile !== null;
 
   const openScores = () => {
     setInspecting(null);
@@ -203,6 +298,10 @@ export function Game({ names: defaultNames, onExit, ...config }: GameScreenProps
             {round.dealer === seat ? ' · you deal' : ''}
           </span>
         </div>
+        {/* Only where there is someone to react to: a room game has a person
+            on the other end, pass-and-play has them sitting next to you, and
+            the computer has no feelings to hurt. */}
+        {isNetwork && <EmotePicker disabled={!session.canEmote} onSend={sendEmote} />}
         <div className="topbar__score">
           <span>{state.scores[seat]}</span>
           <i>·</i>
@@ -267,23 +366,68 @@ export function Game({ names: defaultNames, onExit, ...config }: GameScreenProps
       />
 
       <footer className="statusbar">
-        {theirTurn
-          ? session.busy
-            ? `${names[opponent]} is thinking…`
-            : `${names[opponent]}'s turn`
-          : round.phase === 'draw'
-            ? 'Flipping from the deck…'
-            : round.phase === 'choose-hand-target' || round.phase === 'choose-draw-target'
-              ? 'Choose which card to take'
-              : selected
-                ? selectedHasMatch
-                  ? 'Tap a lit card to capture it'
-                  : 'No match — tap the table to discard'
-                : 'Slide across your hand, then tap a card'}
+        {/* While the prompt is peeked away this is the only thing holding the
+            decision open, so it takes the whole line. */}
+        {koiDecision && peeking ? (
+          <button
+            type="button"
+            className="btn btn--primary statusbar__decide"
+            onClick={() => setPeeking(false)}
+          >
+            Koi-Koi or stop · decide
+          </button>
+        ) : theirTurn ? (
+          // A card lined up out of turn is worth confirming — but not at the
+          // cost of whose turn it is, which is the one thing this line must
+          // never stop saying. Both, in that order.
+          selected ? (
+            selectedHasMatch ? (
+              `${names[opponent]}'s turn · your card would take ${plural(selectedMatches, 'card')}`
+            ) : (
+              `${names[opponent]}'s turn · your card has no match`
+            )
+          ) : session.busy ? (
+            `${names[opponent]} is thinking…`
+          ) : (
+            `${names[opponent]}'s turn`
+          )
+        ) : round.phase === 'draw' ? (
+          'Flipping from the deck…'
+        ) : round.phase === 'choose-hand-target' || round.phase === 'choose-draw-target' ? (
+          'Choose which card to take'
+        ) : selected ? (
+          selectedHasMatch ? (
+            'Tap a lit card to capture it'
+          ) : (
+            'No match — tap the table to discard'
+          )
+        ) : (
+          'Slide across your hand, then tap a card'
+        )}
       </footer>
 
       {inspecting && !sheetOpen && (
         <CardInfo id={inspecting} rules={state.rules} onClose={() => setInspecting(null)} />
+      )}
+
+      {theirEmote && (
+        <EmoteBurst
+          nonce={theirEmote.nonce}
+          id={theirEmote.id}
+          from="them"
+          name={names[opponent]}
+          onDone={clearTheirEmote}
+        />
+      )}
+
+      {myEmote && (
+        <EmoteBurst
+          nonce={myEmote.nonce}
+          id={myEmote.id}
+          from="me"
+          name={names[seat]}
+          onDone={clearMyEmote}
+        />
       )}
 
       {koiCall && (
@@ -295,12 +439,13 @@ export function Game({ names: defaultNames, onExit, ...config }: GameScreenProps
         />
       )}
 
-      {showKoiKoi && (
+      {koiDecision && !peeking && (
         <KoiKoiPrompt
           settlement={stoppingPays}
           rules={state.rules}
           onKoiKoi={() => session.submit({ type: 'koikoi' })}
           onShobu={() => session.submit({ type: 'shobu' })}
+          onPeek={() => setPeeking(true)}
         />
       )}
 

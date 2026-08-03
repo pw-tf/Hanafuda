@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { GameState } from '../engine/game';
 import { warmCardCache } from '../art/CardFace';
 import { loadPreferences, savePreferences, type Preferences } from './preferences';
-import { clearGame, describeSave, loadGame } from './persistence';
+import { clearGame, describeSave, loadGame, resumeLabel } from './persistence';
 import type { Difficulty } from '../ai';
 import { DEFAULT_RULES, type RuleConfig } from '../engine/rules';
 import { MAX_NAME_LENGTH, sanitizeName, type Strategy } from '../net/protocol';
@@ -199,13 +199,18 @@ export function App() {
         onSettings={() => navigate('settings')}
         onGallery={() => navigate('gallery')}
         onHowToPlay={() => navigate('howto')}
-        resumable={saved ? describeSave(saved) : null}
+        resumable={saved ? { label: resumeLabel(saved), detail: describeSave(saved) } : null}
         onResume={() => {
           if (!saved) return;
           setDifficulty(saved.difficulty);
+          // A saved game carries the table it was dealt under, so resuming it
+          // plays on under those rules rather than being quietly rescored
+          // with whatever Settings happens to be showing now.
+          if (saved.state) setRules(saved.state.rules);
           startPlay({
             mode: saved.mode,
-            resume: saved.state,
+            // A guest has no board of its own; it rejoins and is told one.
+            ...(saved.state ? { resume: saved.state } : {}),
             ...(saved.roomCode ? { roomCode: saved.roomCode } : {}),
             ...(saved.strategy ? { strategy: saved.strategy } : {}),
           });

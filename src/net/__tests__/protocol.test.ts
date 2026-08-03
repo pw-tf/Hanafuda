@@ -5,9 +5,12 @@ import { STANDARD_RULES } from '../../engine/rules';
 import {
   EMOTES,
   EMOTE_COOLDOWN_MS,
+  acceptSnapshot,
   emote,
   emoteAllowed,
   isEmoteId,
+  newEpoch,
+  newSnapshotWindow,
   MAX_NAME_LENGTH,
   sanitizeName,
   decodeMove,
@@ -144,13 +147,13 @@ describe('host/guest replication', () => {
     // The guest starts with nothing and only ever adopts host snapshots.
     let guest: GameState | null = null;
     let seq = 0;
-    let lastSeen = -1;
+    const epoch = newEpoch();
+    const seen = newSnapshotWindow();
 
     /** The host broadcasting, and the guest applying, exactly as in the app. */
     const broadcast = (state: GameState) => {
-      const message = { seq: ++seq, json: encodeState(state) };
-      if (message.seq <= lastSeen) return;
-      lastSeen = message.seq;
+      const message = { epoch, seq: ++seq, json: encodeState(state) };
+      if (!acceptSnapshot(seen, message)) return;
       guest = decodeState(message.json);
     };
 
@@ -178,17 +181,74 @@ describe('host/guest replication', () => {
     const first = createGame(STANDARD_RULES, 7, 0);
     const second = applyMove(first, legalMoves(first)[0] as Move);
 
-    let lastSeen = -1;
+    const epoch = newEpoch();
+    const seen = newSnapshotWindow();
     let guest: GameState | null = null;
     const receive = (seq: number, state: GameState) => {
-      if (seq <= lastSeen) return;
-      lastSeen = seq;
+      if (!acceptSnapshot(seen, { epoch, seq })) return;
       guest = decodeState(encodeState(state));
     };
 
     receive(2, second);
     receive(1, first); // late delivery of the older snapshot
     expect(guest).toEqual(second);
+  });
+});
+
+/**
+ * What happens when the host's page is thrown away and brought back — the
+ * ordinary consequence of switching apps on a phone. Its sequence numbers
+ * restart from zero, and the guest must not read that as a flood of stale
+ * deliveries and freeze on a position nobody is playing any more.
+ */
+describe('a host that reloaded mid-game', () => {
+  it('gives every run a distinct epoch', () => {
+    const epochs = new Set(Array.from({ length: 200 }, newEpoch));
+    expect(epochs.size).toBe(200);
+    for (const e of epochs) expect(e).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  it('adopts the resumed host’s snapshots even though seq went backwards', () => {
+    const seen = newSnapshotWindow();
+    const before = newEpoch();
+    const after = newEpoch();
+
+    for (let seq = 1; seq <= 40; seq++) {
+      expect(acceptSnapshot(seen, { epoch: before, seq })).toBe(true);
+    }
+    // The host comes back counting from one again.
+    expect(acceptSnapshot(seen, { epoch: after, seq: 1 })).toBe(true);
+    expect(acceptSnapshot(seen, { epoch: after, seq: 2 })).toBe(true);
+  });
+
+  it('still drops late deliveries once the new run is under way', () => {
+    const seen = newSnapshotWindow();
+    const epoch = newEpoch();
+    expect(acceptSnapshot(seen, { epoch, seq: 5 })).toBe(true);
+    expect(acceptSnapshot(seen, { epoch, seq: 5 })).toBe(false);
+    expect(acceptSnapshot(seen, { epoch, seq: 4 })).toBe(false);
+    expect(acceptSnapshot(seen, { epoch, seq: 6 })).toBe(true);
+  });
+
+  it('does not treat a stale delivery from the old run as a new one', () => {
+    const seen = newSnapshotWindow();
+    const before = newEpoch();
+    const after = newEpoch();
+
+    acceptSnapshot(seen, { epoch: before, seq: 40 });
+    acceptSnapshot(seen, { epoch: after, seq: 1 });
+    // The old run's 41st snapshot turns up late. It belongs to a host that no
+    // longer exists, but it is a different epoch, so it would be adopted —
+    // and then immediately corrected by the live host's next snapshot.
+    acceptSnapshot(seen, { epoch: before, seq: 41 });
+    expect(acceptSnapshot(seen, { epoch: after, seq: 2 })).toBe(true);
+  });
+
+  it('understands a host too old to send an epoch at all', () => {
+    const seen = newSnapshotWindow();
+    expect(acceptSnapshot(seen, { seq: 1 })).toBe(true);
+    expect(acceptSnapshot(seen, { seq: 2 })).toBe(true);
+    expect(acceptSnapshot(seen, { seq: 1 })).toBe(false);
   });
 });
 

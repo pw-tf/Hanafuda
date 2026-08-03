@@ -25,8 +25,11 @@ export function Menu({
   onSettings(): void;
   onGallery(): void;
   onHowToPlay(): void;
-  /** Description of a saved game in progress, if there is one. */
-  resumable: string | null;
+  /**
+   * The saved game in progress, if there is one: what returning to it is
+   * called, and a line describing what is being returned to.
+   */
+  resumable: { label: string; detail: string } | null;
   onResume(): void;
   onDiscardSave(): void;
 }) {
@@ -49,8 +52,8 @@ export function Menu({
         {resumable && (
           <div className="resume">
             <button type="button" className="btn btn--primary btn--wide" onClick={onResume}>
-              Resume game
-              <span className="resume__detail">{resumable}</span>
+              {resumable.label}
+              <span className="resume__detail">{resumable.detail}</span>
             </button>
             <button type="button" className="resume__discard" onClick={onDiscardSave}>
               Discard saved game

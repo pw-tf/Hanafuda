@@ -44,6 +44,13 @@
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
 
+  /* The mincho webfont is subset to Latin and Japanese, so an emoji falls all
+     the way through to the generic serif — which on some platforms is a
+     monochrome outline rather than the colour glyph. Naming the platform
+     emoji fonts explicitly keeps the reactions looking like reactions. */
+  --emoji: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Twemoji Mozilla',
+    'EmojiOne Color', 'Android Emoji', sans-serif;
+
   color-scheme: dark;
 }
 
@@ -265,9 +272,15 @@ code {
 
 /* ---------------------------------------------------------------- topbar */
 
+/* Back button, title, then whatever else the screen puts on the right — the
+   score, and in a room game the reactions button. Auto columns rather than a
+   fixed three, so adding one does not have to be spelled out for the screens
+   that do not have it. */
 .topbar {
   display: grid;
-  grid-template-columns: 2.25rem 1fr auto;
+  grid-template-columns: 2.25rem 1fr;
+  grid-auto-flow: column;
+  grid-auto-columns: auto;
   align-items: center;
   gap: 0.5rem;
 }
@@ -327,6 +340,171 @@ code {
 .netbar--error {
   border-color: rgba(217, 59, 48, 0.6);
   background: rgba(217, 59, 48, 0.14);
+}
+
+/* -------------------------------------------------------------- reactions */
+
+/* The picker lives in the top bar and drops a tray beneath itself. Reactions
+   are room-game only, so nothing here is ever rendered against the computer
+   or in pass-and-play. */
+.emotes {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.emotes__toggle {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.emotes__toggle--open {
+  border-color: var(--lacquer-hi);
+  background: rgba(176, 64, 47, 0.24);
+}
+
+.emotes__toggle:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Transparent, full-screen, and *under* the tray: the first tap outside
+   closes it instead of also playing whatever card it landed on. */
+.emotes__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 26;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.emotes__tray {
+  position: absolute;
+  z-index: 27;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  display: flex;
+  gap: 0.1rem;
+  padding: 0.3rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+  animation: rise 0.16s ease;
+}
+
+.emotes__pick {
+  width: 2.6rem;
+  height: 2.6rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+
+.emotes__pick:active {
+  background: var(--panel);
+  transform: scale(0.9);
+}
+
+/* A reaction on its way past: rises from its sender's side of the table,
+   holds long enough to read, and lifts away. `pointer-events: none` on the
+   whole thing — a reaction landing mid-turn must never swallow a tap meant
+   for a card. */
+.emote {
+  position: fixed;
+  left: 50%;
+  z-index: 27;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  pointer-events: none;
+  animation: emote-pop 2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.emote--them {
+  top: 22dvh;
+}
+
+.emote--me {
+  bottom: 27dvh;
+}
+
+.emote__glyph {
+  font-size: 3.2rem;
+  line-height: 1;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.65));
+}
+
+.emote__who {
+  max-width: 60vw;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.6);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emotes__toggle span,
+.emotes__pick span,
+.emote__glyph {
+  font-family: var(--emoji);
+}
+
+/* Every keyframe carries the centring translate: dropping it from one of them
+   is what makes an absolutely-centred element jump sideways mid-animation. */
+@keyframes emote-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0.7rem) scale(0.5);
+  }
+  14% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1.14);
+  }
+  24% {
+    transform: translate(-50%, 0) scale(1);
+  }
+  72% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -1.6rem) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .emote {
+    animation: emote-fade 2s linear both;
+  }
+  @keyframes emote-fade {
+    0%,
+    100% {
+      opacity: 0;
+      transform: translate(-50%, 0);
+    }
+    12%,
+    75% {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+  }
 }
 
 /* ------------------------------------------------------ capture summaries */
@@ -598,6 +776,16 @@ code {
   transform: translateY(-3px);
 }
 
+/* A card held ready out of turn still shows what it would take, but a solid
+   gold rim reads as "tap me" — and tapping is exactly what cannot happen yet.
+   Dashed and unlifted says the same thing in the conditional. */
+.board__field--preview .board__slot--target {
+  border-style: dashed;
+  border-color: rgba(232, 180, 35, 0.65);
+  box-shadow: none;
+  transform: none;
+}
+
 .board__slot img {
   border-radius: 0.3rem;
   display: block;
@@ -735,8 +923,20 @@ code {
   isolation: isolate;
 }
 
+/* Only where the fan genuinely cannot be touched — the round-end sheet, or a
+   pending "which of these two do you want" that the fan would fight. The
+   opponent's turn is no longer one of these: the hand stays live and at full
+   strength so it can be read and rehearsed while they play. */
 .hand--idle {
   opacity: 0.5;
+}
+
+/* Live, but no move can follow yet. The cards keep their full weight; only the
+   "this can take something" rim is drawn back, so a lit card out of turn is
+   information rather than an invitation. */
+.hand--preview .hand__card--playable img {
+  outline-width: 2px;
+  outline-color: rgba(232, 180, 35, 0.45);
 }
 
 .hand__card {
@@ -813,6 +1013,15 @@ code {
   font-size: 0.78rem;
   color: var(--muted);
   min-height: 1.2rem;
+}
+
+/* Takes the status line's place while the Koi-Koi prompt is peeked away. It
+   is the only way back to the decision, so it sits where the eye already goes
+   for "what now?" rather than floating over the cards being studied. */
+.statusbar__decide {
+  min-height: 0;
+  padding: 0.35rem 1rem;
+  font-size: 0.82rem;
 }
 
 /* ---------------------------------------------------------------- sheets */
@@ -1199,6 +1408,21 @@ code {
 
 .btn--ghost {
   background: transparent;
+}
+
+/* Third rank, below ghost: an aside on a sheet that already has its two real
+   answers on it. Reads as a link so it cannot be mistaken for a third choice
+   in the decision itself. */
+.btn--quiet {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.85rem;
+  min-height: 2.2rem;
+  padding: 0.35rem;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
 }
 
 .btn:disabled {

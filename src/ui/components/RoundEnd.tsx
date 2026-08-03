@@ -197,17 +197,25 @@ export function RoundEnd({
  * is in play — a base of 8 after one koi-koi banks 32 — and this is the one
  * decision in the game that turns entirely on how big that number is. The
  * arithmetic is shown underneath so the total is checkable rather than magic.
+ *
+ * The total is not the whole picture, though: whether to play on depends on
+ * what is still on the table and what is left in your hand, and this sheet
+ * covers both. So `onPeek` slides it out of the way rather than making the
+ * player decide from memory. The decision itself is not skippable — the sheet
+ * is not dismissible, and peeking leaves a button that only brings it back.
  */
 export function KoiKoiPrompt({
   settlement,
   rules,
   onKoiKoi,
   onShobu,
+  onPeek,
 }: {
   settlement: RoundSettlement;
   rules: RuleConfig;
   onKoiKoi(): void;
   onShobu(): void;
+  onPeek(): void;
 }) {
   const { base, sevenPointMultiplier, koiMultiplier, total } = settlement;
   const multiplied = total !== base;
@@ -234,6 +242,9 @@ export function KoiKoiPrompt({
           Koi-Koi!
         </button>
       </div>
+      <button type="button" className="btn btn--quiet btn--wide" onClick={onPeek}>
+        Look at the table first
+      </button>
     </Sheet>
   );
 }

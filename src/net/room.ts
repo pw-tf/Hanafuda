@@ -15,11 +15,15 @@ import type { GameState, Move } from '../engine/game';
 import type { RuleConfig } from '../engine/rules';
 import {
   ACTIONS,
+  emoteAllowed,
   PROTOCOL_VERSION,
   type Strategy,
   encodeMove,
   encodeRules,
   encodeState,
+  isEmoteId,
+  type EmoteId,
+  type EmoteMessage,
   type HelloMessage,
   type NameMessage,
   type IntentMessage,
@@ -48,6 +52,8 @@ export interface RoomHandlers {
   onState(message: StateMessage): void;
   onIntent(message: IntentMessage, peerId: string): void;
   onReject(message: RejectMessage): void;
+  /** A reaction from the other player. Already validated against `EMOTES`. */
+  onEmote(id: EmoteId): void;
 }
 
 export interface RoomHandle {
@@ -58,6 +64,7 @@ export interface RoomHandle {
   sendState(state: GameState, seq: number): void;
   sendIntent(move: Move): void;
   sendReject(message: Omit<RejectMessage, 'v'>): void;
+  sendEmote(id: EmoteId): void;
   peers(): string[];
   leave(): void;
 }
@@ -110,6 +117,7 @@ export function connectRoom(
   const state = room.makeAction<StateMessage>(ACTIONS.state);
   const intent = room.makeAction<IntentMessage>(ACTIONS.intent);
   const reject = room.makeAction<RejectMessage>(ACTIONS.reject);
+  const emote = room.makeAction<EmoteMessage>(ACTIONS.emote);
 
   const connected = new Set<string>();
   let bootstrapped = false;
@@ -160,6 +168,19 @@ export function connectRoom(
 
   reject.onMessage = (message) => handlers.onReject(message);
 
+  // Reactions are the one message a player can send at will, so the floor is
+  // enforced here rather than trusting the other client to have greyed its
+  // own button out. Early arrivals are dropped, not queued — a dropped
+  // reaction is nothing, a queued one is the flipbook it was sent to be.
+  let lastEmoteAt = 0;
+  emote.onMessage = (message) => {
+    if (message.v !== PROTOCOL_VERSION || !isEmoteId(message.id)) return;
+    const now = Date.now();
+    if (!emoteAllowed(lastEmoteAt, now)) return;
+    lastEmoteAt = now;
+    handlers.onEmote(message.id);
+  };
+
   handlers.onStatus('waiting');
 
   // Sends reject if the channel drops mid-flight; nothing the player can act
@@ -179,6 +200,7 @@ export function connectRoom(
       fireAndForget(state.send({ v: PROTOCOL_VERSION, seq, json: encodeState(gameState) })),
     sendIntent: (move) => fireAndForget(intent.send({ v: PROTOCOL_VERSION, json: encodeMove(move) })),
     sendReject: (message) => fireAndForget(reject.send({ ...message, v: PROTOCOL_VERSION })),
+    sendEmote: (id) => fireAndForget(emote.send({ v: PROTOCOL_VERSION, id })),
     peers: () => [...connected],
     leave: () => {
       clearTimeout(bootstrapTimer);

@@ -240,6 +240,18 @@ Portrait-first, and laid out so the field never loses room:
   the card swings the outer cards sideways, so `fanLayout()` measures the true
   extent and scales the whole fan down until it fits the container. It stays
   on screen at any hand size and any phone width.
+- **The hand stays live while the opponent plays.** Sliding, tapping and the
+  card-info panel all keep working out of turn — the field cards a held card
+  would take are outlined dashed rather than solid, to say "would" rather than
+  "tap me" — and the card you pulled forward is still forward when the turn
+  comes back. Only the commit is withheld. Waiting for the other player is
+  thinking time, so the fan is legible during it rather than greyed out.
+- **The Koi-Koi decision can be taken with the table in view.** The prompt
+  totals what stopping banks, but the choice turns on what is still on the
+  field and in your hand, and the sheet covers both — so "Look at the table
+  first" slides it away, leaving a button in the status bar as the only way
+  back. The decision still cannot be skipped: the sheet is not dismissible,
+  and peeking never answers it.
 
 ### Matching rules
 
@@ -305,6 +317,16 @@ a monotonic sequence number, so an out-of-order delivery is discarded.
 
 Room codes are 6 characters from an alphabet with `0/O/1/I` removed, so a code
 read aloud round-trips reliably.
+
+**Reactions** (😏 👀 😡 🤔 😮) are the one message either side can send at
+will, so both ends are defensive about them. What travels is the *id*, never
+the glyph — the receiving device looks the face up in its own table — so the
+worst a modified client can do is show one of the five faces it was already
+allowed to show. Anything unrecognised is dropped at the boundary, the same
+way a nickname is sanitized. A cooldown is enforced on both ends from one
+shared function, so the sender's greyed-out button and the receiver's drop
+rule cannot drift apart. Reactions are room games only: pass-and-play has the
+other player sitting next to you, and the computer has no feelings to hurt.
 
 > **Not verified live.** The sandbox this was built in blocks outbound
 > WebSockets to every public relay, so the real relay handshake could not be

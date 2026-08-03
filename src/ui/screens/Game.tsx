@@ -309,17 +309,6 @@ export function Game({ names: defaultNames, onExit, ...config }: GameScreenProps
         </div>
       </header>
 
-      {/* Only when something is wrong. A permanent "Connected · Nostr relays"
-          strip cost the table a row to say nothing — you can see the game is
-          working, because it is working. */}
-      {isNetwork && session.connection !== 'connected' && (
-        <div className={`netbar netbar--${session.connection}`}>
-          {session.connection === 'peer-left'
-            ? 'The other player disconnected'
-            : (session.connectionDetail ?? 'Connecting…')}
-        </div>
-      )}
-
       <PileSummary
         name={names[opponent]}
         cards={round.players[opponent].captured}

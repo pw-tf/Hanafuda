@@ -258,7 +258,6 @@ code {
 }
 
 .screen--game > .topbar,
-.screen--game > .netbar,
 .screen--game > .statusbar {
   flex: 0 0 auto;
 }
@@ -322,24 +321,6 @@ code {
 
 .topbar__them {
   color: var(--muted);
-}
-
-.netbar {
-  padding: 0.35rem 0.6rem;
-  border-radius: var(--radius);
-  font-size: 0.75rem;
-  background: var(--panel);
-  border: 1px solid var(--line);
-}
-
-.netbar--connected {
-  border-color: rgba(120, 200, 150, 0.4);
-}
-
-.netbar--peer-left,
-.netbar--error {
-  border-color: rgba(217, 59, 48, 0.6);
-  background: rgba(217, 59, 48, 0.14);
 }
 
 /* -------------------------------------------------------------- reactions */

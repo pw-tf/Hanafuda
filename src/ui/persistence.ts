@@ -31,7 +31,14 @@ export interface SavedGame {
   difficulty: Difficulty;
   roomCode?: string;
   strategy?: Strategy;
-  state: GameState;
+  /**
+   * The position — for everyone who owns one. A guest mirrors the host rather
+   * than owning anything, so its save is the room and nothing else: enough to
+   * walk back in and be told the position, and never enough to show a stale
+   * one. There is only one slot, so this is also what keeps a guest's menu
+   * from offering the code of some older game it never overwrote.
+   */
+  state?: GameState;
 }
 
 function storage(): Storage | null {
@@ -97,6 +104,18 @@ export function loadGame(): SavedGame | null {
       clearGame();
       return null;
     }
+    if (parsed.mode === 'guest') {
+      // A way back into the room, not a position. Without a code there is
+      // nowhere to go, so there is nothing worth offering. Any state that
+      // came with it is dropped rather than shown: the host owns the board,
+      // and it will have moved on.
+      if (!parsed.roomCode) {
+        clearGame();
+        return null;
+      }
+      const { state: _stale, ...room } = parsed;
+      return room;
+    }
     if (!parsed.state || parsed.state.matchOver || !isCoherent(parsed.state)) {
       clearGame();
       return null;
@@ -124,6 +143,11 @@ export function clearGame(): void {
   }
 }
 
+/** What the resume button on the menu is offering to put you back into. */
+export function resumeLabel(save: SavedGame): string {
+  return save.mode === 'guest' ? 'Rejoin room' : 'Resume game';
+}
+
 /** Human-readable summary for the resume button on the menu. */
 export function describeSave(save: SavedGame): string {
   const where =
@@ -132,6 +156,9 @@ export function describeSave(save: SavedGame): string {
       : save.mode === 'local'
         ? 'pass and play'
         : `room ${save.roomCode ?? '—'}`;
+  // A guest save has no position to describe — the host owns it — so this
+  // says where it is going rather than claiming to know what is on the table.
+  if (!save.state) return `${where} · the host has the board`;
   const { round, rules, scores } = save.state;
   return `${where} · round ${round}/${rules.rounds} · ${scores[0]}–${scores[1]}`;
 }

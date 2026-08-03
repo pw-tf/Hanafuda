@@ -25,9 +25,12 @@ import {
 import { createRng, randomSeed } from '../engine/rng';
 import type { RuleConfig } from '../engine/rules';
 import {
+  acceptSnapshot,
   decodeMove,
   decodeRules,
   decodeState,
+  newEpoch,
+  newSnapshotWindow,
   sanitizeName,
   seedFromRoomCode,
   emoteAllowed,
@@ -105,6 +108,16 @@ const AI_THINK_MS = 1250;
  */
 const SLICE_MS = 8;
 
+/**
+ * The shortest gap between two attempts to redial the room.
+ *
+ * Coming back to the tab is the cue to rejoin, and a phone can hand out
+ * several of those events at once — `visibilitychange`, `pageshow` and
+ * `online` can all fire for one unlock — so they are collapsed into one
+ * attempt rather than three rooms opened on top of each other.
+ */
+const REJOIN_COOLDOWN_MS = 5_000;
+
 export function useGameSession(config: SessionConfig): Session {
   const { mode, rules, difficulty, roomCode, strategy = 'nostr', nickname, resume } = config;
 
@@ -131,10 +144,24 @@ export function useGameSession(config: SessionConfig): Session {
   const emoteNonce = useRef(0);
   const emoteSentAt = useRef(0);
 
+  /**
+   * Bumped to make the room effect drop its connection and dial again. This
+   * is the recovery path: rebuilding the relay sockets from scratch is
+   * immediate, where waiting on Trystero's own retry means sitting out a
+   * backoff that doubles towards a minute — and whose timer was frozen along
+   * with the rest of the page while the tab was in the background.
+   */
+  const [rejoinNonce, setRejoinNonce] = useState(0);
+
   const roomRef = useRef<RoomHandle | null>(null);
   const stateRef = useRef<GameState | null>(state);
   const seqRef = useRef(0);
-  const lastSeenSeq = useRef(-1);
+  // Host: which run of this host the snapshots below belong to. Fixed for the
+  // life of the component, so resuming after a reload produces a new one.
+  const epochRef = useRef(newEpoch());
+  // Guest: what has already been adopted, so a late snapshot is dropped and a
+  // resumed host's fresh numbering is not mistaken for one.
+  const seenSnapshots = useRef(newSnapshotWindow());
   const aiRng = useRef(createRng(initialSeed ^ 0x5bf03635));
   // The AI sits in seat 1 and keeps a belief about seat 0's hand, so it has to
   // survive across turns rather than being rebuilt per decision.
@@ -155,7 +182,7 @@ export function useGameSession(config: SessionConfig): Session {
       stateRef.current = next;
       setState(next);
       if (mode === 'host' && roomRef.current) {
-        roomRef.current.sendState(next, ++seqRef.current);
+        roomRef.current.sendState(next, ++seqRef.current, epochRef.current);
       }
     },
     [mode],
@@ -189,12 +216,18 @@ export function useGameSession(config: SessionConfig): Session {
     let cancelled = false;
     let opened: RoomHandle | null = null;
 
+    // Rejoining tears one room down and opens another, and the old one can
+    // still deliver — a late `onStatus` from a room we have already left
+    // would report the new connection as broken. Every handler is therefore
+    // gated on this run still being the current one.
     const handlers: RoomHandlers = {
         onStatus: (status, detail) => {
+          if (cancelled) return;
           setConnection(status);
           setConnectionDetail(detail ?? null);
         },
         onHello: (message) => {
+          if (cancelled) return;
           // The guest scores from the rules carried inside each state
           // snapshot, so hello is only a compatibility check: warn loudly if
           // the host is playing a different table than this client shows.
@@ -205,21 +238,20 @@ export function useGameSession(config: SessionConfig): Session {
           }
         },
         onName: (message) => {
+          if (cancelled) return;
           // Straight from the other device, so it is sanitized here rather
           // than trusted anywhere downstream.
           setPeerName(sanitizeName(message.name, ''));
         },
         onState: (message) => {
-          if (mode !== 'guest') return;
-          // Snapshots can arrive out of order; only ever move forward.
-          if (message.seq <= lastSeenSeq.current) return;
-          lastSeenSeq.current = message.seq;
+          if (cancelled || mode !== 'guest') return;
+          if (!acceptSnapshot(seenSnapshots.current, message)) return;
           const next = decodeState(message.json);
           stateRef.current = next;
           setState(next);
         },
         onIntent: (message, peerId) => {
-          if (mode !== 'host') return;
+          if (cancelled || mode !== 'host') return;
           const current = stateRef.current;
           if (!current) return;
 
@@ -239,8 +271,12 @@ export function useGameSession(config: SessionConfig): Session {
           void peerId;
           commit(applyMove(current, move));
         },
-      onReject: (message) => setLastRejection(message.reason),
+      onReject: (message) => {
+        if (cancelled) return;
+        setLastRejection(message.reason);
+      },
       onEmote: (id) => {
+        if (cancelled) return;
         emoteNonce.current += 1;
         setLastEmote({ id, nonce: emoteNonce.current });
       },
@@ -265,7 +301,7 @@ export function useGameSession(config: SessionConfig): Session {
       opened?.leave();
       roomRef.current = null;
     };
-  }, [isNetwork, roomCode, mode, strategy, commit]);
+  }, [isNetwork, roomCode, mode, strategy, commit, rejoinNonce]);
 
   // Host: push the rules and the current position whenever a peer connects.
   useEffect(() => {
@@ -274,7 +310,7 @@ export function useGameSession(config: SessionConfig): Session {
     const current = stateRef.current;
     if (!room || !current) return;
     room.sendHello(rules);
-    room.sendState(current, ++seqRef.current);
+    room.sendState(current, ++seqRef.current, epochRef.current);
   }, [mode, connection, rules]);
 
   // Both sides introduce themselves — a nickname travels in both directions,
@@ -284,15 +320,80 @@ export function useGameSession(config: SessionConfig): Session {
     roomRef.current?.sendName(nickname ?? '');
   }, [isNetwork, connection, nickname]);
 
+  /**
+   * Coming back to the tab.
+   *
+   * A phone that backgrounds a browser suspends the page, and WebRTC goes
+   * with it: Trystero gives up on a peer after five seconds in the
+   * `disconnected` state, so a glance at another app is long enough to be
+   * dropped. Nothing recovers on its own quickly, because the timers that
+   * would do the recovering were frozen too. So returning to the tab is
+   * treated as the cue to put the connection back together.
+   */
+  const connectionRef = useRef(connection);
+  connectionRef.current = connection;
+
+  useEffect(() => {
+    if (!isNetwork) return;
+
+    let lastAttemptAt = 0;
+
+    const wake = () => {
+      if (document.visibilityState !== 'visible') return;
+
+      if (connectionRef.current === 'connected') {
+        // The channel outlasted the nap. A guest may still have slept through
+        // snapshots, so the host restates the position now rather than
+        // leaving the table stale until somebody happens to move.
+        if (mode === 'host' && stateRef.current) {
+          roomRef.current?.sendState(stateRef.current, ++seqRef.current, epochRef.current);
+        }
+        return;
+      }
+
+      // One unlock can produce all three of these events, so they collapse
+      // into a single redial rather than three rooms opened at once.
+      const now = Date.now();
+      if (now - lastAttemptAt < REJOIN_COOLDOWN_MS) return;
+      lastAttemptAt = now;
+      setRejoinNonce((n) => n + 1);
+    };
+
+    document.addEventListener('visibilitychange', wake);
+    // `pageshow` covers a restore from the back/forward cache, which fires no
+    // visibility change of its own; `online` covers a network that came back
+    // while the tab was already in front.
+    window.addEventListener('pageshow', wake);
+    window.addEventListener('online', wake);
+    return () => {
+      document.removeEventListener('visibilitychange', wake);
+      window.removeEventListener('pageshow', wake);
+      window.removeEventListener('online', wake);
+    };
+  }, [isNetwork, mode]);
+
   // ---------------------------------------------------------------------
   // Persistence
   // ---------------------------------------------------------------------
 
-  // A guest owns no state — it mirrors the host — so there is nothing
-  // meaningful for it to restore, and saving would resurrect a stale
-  // position on refresh. Everyone else saves after every change.
+  // A guest owns no state — it mirrors the host — so the board is not saved:
+  // a stale position would be a lie the moment the host moved on. The room
+  // is saved, which is the part a guest cannot reconstruct. A phone that
+  // discards a backgrounded page would otherwise come back to a menu with no
+  // way in, asking for a code the player very likely never wrote down.
+  // Everyone else saves the position too, after every change.
   useEffect(() => {
-    if (mode === 'guest' || !state) return;
+    if (mode === 'guest') {
+      if (!roomCode) return;
+      if (state?.matchOver) {
+        clearGame();
+        return;
+      }
+      saveGame({ mode, difficulty, roomCode, ...(strategy ? { strategy } : {}) });
+      return;
+    }
+
+    if (!state) return;
     if (state.matchOver) {
       clearGame();
       return;

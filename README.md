@@ -318,6 +318,40 @@ a monotonic sequence number, so an out-of-order delivery is discarded.
 Room codes are 6 characters from an alphabet with `0/O/1/I` removed, so a code
 read aloud round-trips reliably.
 
+#### Switching apps
+
+A phone that backgrounds the browser suspends the page, and WebRTC goes with
+it. Trystero writes a peer off after **five seconds** in the `disconnected`
+state, so a glance at another app is long enough to be dropped — and nothing
+recovers quickly on its own, because the timers that would do the recovering
+were frozen too, and the relay socket's own backoff doubles towards a minute.
+Three things make that survivable:
+
+- **Coming back to the tab is the cue to redial.** On `visibilitychange`,
+  `pageshow` or `online`, a session that is not connected tears the room down
+  and opens it again — rebuilding the relay sockets is immediate, where
+  waiting means sitting out that backoff. One that *is* connected has the host
+  restate the position instead, so a guest that slept through snapshots is not
+  left on a stale table until somebody happens to move.
+- **Snapshots carry an epoch as well as a sequence number.** A host whose page
+  was discarded comes back counting from zero, and the guest would otherwise
+  read every snapshot from the resumed host as a stale delivery and freeze on
+  the last position of the old run — a connected game that never moves again.
+  The epoch identifies the *run*, so the guest knows to start its ordering
+  window over rather than discard.
+- **A guest saves the room, and only the room.** It mirrors the host rather
+  than owning a position, so there is no board worth restoring — but the room
+  code is the part it cannot reconstruct, and a phone that discards the page
+  would otherwise return to a menu asking for a code the player never wrote
+  down. There is one save slot, so this is also what stops a guest's menu
+  offering to resume some older game, under some older room code, while the
+  player is trying to get back into the one they were just thrown out of.
+
+A drop is presented as **"Reconnecting…"** with a spinner and a counter, and
+leaving is a button rather than the only button: the room is still open and
+still redialling throughout, so treating it as the end of the game was wrong
+about what was actually happening.
+
 **Reactions** (😏 👀 😡 🤔 😮) are the one message either side can send at
 will, so both ends are defensive about them. What travels is the *id*, never
 the glyph — the receiving device looks the face up in its own table — so the
@@ -335,14 +369,16 @@ other player sitting next to you, and the computer has no feelings to hurt.
 > and graceful degradation to the "still looking for the other player" state —
 > and the sync logic itself is covered by tests that replicate a full round
 > between a simulated host and guest. **The live handshake needs a real
-> network to confirm.** If one relay type is blocked, both players can switch
-> to the other in the lobby.
+> network to confirm** — and so does the redial-on-wake path above, which is
+> the same handshake run a second time. The parts of it that are pure logic —
+> the epoch rule, the guest's save — are covered by tests. If one relay type
+> is blocked, both players can switch to the other in the lobby.
 
 ---
 
 ## Testing
 
-`npm test` — 201 tests, ~25 s. `npm run bench:ai` measures AI strength; it takes minutes and is deliberately not part of the suite.
+`npm test` — 216 tests, ~25 s. `npm run bench:ai` measures AI strength; it takes minutes and is deliberately not part of the suite.
 
 - **Deck structure** — all invariants listed above.
 - **Yaku truth table** — every yaku at its threshold and one below; brights
@@ -360,8 +396,9 @@ other player sitting next to you, and the computer has no feelings to hurt.
   never holds four of a month, that no state is mutated, and that match
   totals equal the sum of the rounds.
 - **Network** — room-code handling, wire round-trips, host-authoritative
-  rejection of out-of-turn and illegal intents, and a guest mirroring a host
-  exactly across a full round.
+  rejection of out-of-turn and illegal intents, a guest mirroring a host
+  exactly across a full round, and a guest picking a resumed host back up
+  after its sequence numbers restart from zero.
 
 ---
 

@@ -61,7 +61,7 @@ export interface RoomHandle {
   readonly strategy: Strategy;
   sendHello(rules: RuleConfig): void;
   sendName(name: string): void;
-  sendState(state: GameState, seq: number): void;
+  sendState(state: GameState, seq: number, epoch: string): void;
   sendIntent(move: Move): void;
   sendReject(message: Omit<RejectMessage, 'v'>): void;
   sendEmote(id: EmoteId): void;
@@ -196,8 +196,8 @@ export function connectRoom(
     sendHello: (rules) =>
       fireAndForget(hello.send({ v: PROTOCOL_VERSION, json: encodeRules(rules), guestSeat: 1 })),
     sendName: (nickname) => fireAndForget(name.send({ v: PROTOCOL_VERSION, name: nickname })),
-    sendState: (gameState, seq) =>
-      fireAndForget(state.send({ v: PROTOCOL_VERSION, seq, json: encodeState(gameState) })),
+    sendState: (gameState, seq, epoch) =>
+      fireAndForget(state.send({ v: PROTOCOL_VERSION, epoch, seq, json: encodeState(gameState) })),
     sendIntent: (move) => fireAndForget(intent.send({ v: PROTOCOL_VERSION, json: encodeMove(move) })),
     sendReject: (message) => fireAndForget(reject.send({ ...message, v: PROTOCOL_VERSION })),
     sendEmote: (id) => fireAndForget(emote.send({ v: PROTOCOL_VERSION, id })),

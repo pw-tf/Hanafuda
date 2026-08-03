@@ -23,10 +23,60 @@ export const PROTOCOL_VERSION = 1;
 /** Host -> guest: the authoritative state after every change. */
 export type StateMessage = {
   v: number;
-  /** Monotonic, so an out-of-order delivery can be discarded. */
+  /**
+   * Which run of the host produced this. Optional, so a snapshot from a build
+   * that predates the field is still understood — see `acceptSnapshot` for
+   * what it is for.
+   */
+  epoch?: string;
+  /** Monotonic within an epoch, so an out-of-order delivery can be discarded. */
   seq: number;
   /** JSON-encoded `GameState`. */
   json: string;
+}
+
+/**
+ * Identifies one run of a host, so `seq` restarting from zero can be told
+ * apart from a stale delivery. A phone that discards a backgrounded page and
+ * reloads it is a new run.
+ */
+export function newEpoch(): string {
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** What the guest remembers about the snapshots it has already adopted. */
+export interface SnapshotWindow {
+  epoch: string | null;
+  seq: number;
+}
+
+export const newSnapshotWindow = (): SnapshotWindow => ({ epoch: null, seq: -1 });
+
+/**
+ * The guest's rule for whether to adopt an incoming snapshot. Advances `seen`
+ * in place when the answer is yes.
+ *
+ * Snapshots can overtake each other, so one numbered at or below the last
+ * adopted is a late delivery and is dropped. The epoch is what stops that
+ * rule from becoming a trap. A host whose page was discarded — routine when a
+ * phone backgrounds a tab — comes back counting from zero again, and with
+ * nothing to tell the two runs apart the guest would discard every snapshot
+ * the resumed host sends and sit on the last position of the old run forever,
+ * showing a connected game that never moves again.
+ */
+export function acceptSnapshot(seen: SnapshotWindow, message: { epoch?: string; seq: number }): boolean {
+  const epoch = message.epoch ?? '';
+  if (epoch !== seen.epoch) {
+    // A different run entirely: whatever it says is the current position.
+    seen.epoch = epoch;
+    seen.seq = message.seq;
+    return true;
+  }
+  if (message.seq <= seen.seq) return false;
+  seen.seq = message.seq;
+  return true;
 }
 
 /** Guest -> host: "I would like to make this move". */
